@@ -7,6 +7,7 @@ cmake-build-*/*
 .DS_Store
 .idea
 .ccls-cache
+.cache
 compile_commands.json
 ./.name
 ./miniob.iml
