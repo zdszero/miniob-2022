@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdio>
+#include <cassert>
 
 #define DEBUG 1
 
@@ -9,3 +10,5 @@
 #else
 #define DPrintf(fmt, args...) /* Don't do anything in release builds */
 #endif
+
+#define ASSERT(expr, message) assert((expr) && (message))
