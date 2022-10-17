@@ -247,6 +247,8 @@ void print_tuple_header(std::ostream &os, const ProjectOperator &oper)
     os << '\n';
   }
 }
+
+// ProjectTuple
 void tuple_to_string(std::ostream &os, const Tuple &tuple)
 {
   TupleCell cell;
