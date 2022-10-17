@@ -84,6 +84,23 @@ RC Db::create_table(const char *table_name, int attribute_count, const AttrInfo 
   return RC::SUCCESS;
 }
 
+RC Db::drop_table(const char *table_name) {
+  char meta_path[128];
+  char data_path[128];
+  sprintf(meta_path, "%s/%s%s", path_.c_str(), table_name, TABLE_META_SUFFIX);
+  sprintf(data_path, "%s/%s%s", path_.c_str(), table_name, TABLE_DATA_SUFFIX);
+  int ret = remove(meta_path);
+  if (ret < 0) {
+    return RC::FILE_NOT_EXIST;
+  }
+  ret = remove(data_path);
+  if (ret < 0) {
+    return RC::FILE_NOT_EXIST;
+  }
+  return RC::SUCCESS;
+}
+
+
 Table *Db::find_table(const char *table_name) const
 {
   std::unordered_map<std::string, Table *>::const_iterator iter = opened_tables_.find(table_name);
