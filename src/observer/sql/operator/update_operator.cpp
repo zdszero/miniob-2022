@@ -18,6 +18,7 @@ RC UpdateOperator::open() {
   }
 
   Table *table = update_stmt_->table();
+  int updated_cols = 0;
   while (RC::SUCCESS == (rc = child->next())) {
     Tuple *tuple = child->current_tuple();
     if (nullptr == tuple) {
@@ -35,6 +36,10 @@ RC UpdateOperator::open() {
       LOG_WARN("failed to update record: %s", strrc(rc));
       return rc;
     }
+    updated_cols++;
+  }
+  if (updated_cols == 0) {
+    return RC::GENERIC_ERROR;
   }
   return RC::SUCCESS;
 }
