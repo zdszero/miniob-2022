@@ -16,6 +16,7 @@ See the Mulan PSL v2 for more details. */
 #include "sql/parser/parse.h"
 #include "rc.h"
 #include "common/log/log.h"
+#include "sql/parser/parse_defs.h"
 
 RC parse(char *st, Query *sqln);
 
@@ -269,6 +270,16 @@ void create_index_destroy(CreateIndex *create_index)
   create_index->attribute_name = nullptr;
 }
 
+void show_index_init(ShowIndex *show_index, const char *relation_name) {
+  show_index->relation_name = strdup(relation_name);
+}
+
+void show_index_destroy(ShowIndex *show_index) {
+  free(show_index->relation_name);
+
+  show_index->relation_name = nullptr;
+}
+
 void drop_index_init(DropIndex *drop_index, const char *index_name)
 {
   drop_index->index_name = strdup(index_name);
@@ -359,6 +370,9 @@ void query_reset(Query *query)
     case SCF_DROP_INDEX: {
       drop_index_destroy(&query->sstr.drop_index);
     } break;
+    case SCF_SHOW_INDEX: {
+      show_index_destroy(&query->sstr.show_index);
+    }
     case SCF_SYNC: {
 
     } break;

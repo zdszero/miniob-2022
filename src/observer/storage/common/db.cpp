@@ -85,17 +85,20 @@ RC Db::create_table(const char *table_name, int attribute_count, const AttrInfo 
 }
 
 RC Db::drop_table(const char *table_name) {
+  if (!find_table(table_name)) {
+    return RC::SUCCESS;
+  }
   char meta_path[128];
   char data_path[128];
   sprintf(meta_path, "%s/%s%s", path_.c_str(), table_name, TABLE_META_SUFFIX);
   sprintf(data_path, "%s/%s%s", path_.c_str(), table_name, TABLE_DATA_SUFFIX);
   int ret = remove(meta_path);
   if (ret < 0) {
-    return RC::FILE_NOT_EXIST;
+    return RC::GENERIC_ERROR;
   }
   ret = remove(data_path);
   if (ret < 0) {
-    return RC::FILE_NOT_EXIST;
+    return RC::GENERIC_ERROR;
   }
   return RC::SUCCESS;
 }

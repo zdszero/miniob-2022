@@ -549,6 +549,26 @@ static RC insert_index_record_reader_adapter(Record *record, void *context)
   return inserter.insert_index(record);
 }
 
+RC Table::show_index(std::stringstream &ss) {
+  ss << "Table | Non_unique | Key_name | Seq_in_index | Column_name\n";
+  for (Index *index : indexes_) {
+    ss << table_meta_.name() << " | " << (indexes_.size() == 1 ? 1 : 0) << " | "
+      << index->index_meta().name() << " | " << 0 << " | "
+      << index->index_meta().field() << "\n";
+  };
+  return RC::SUCCESS;
+}
+
+RC Table::drop_index(Trx *trx, const char *index_name) {
+  for (Index *index : indexes_) {
+    if (strcmp(index->index_meta().name(), index_name) == 0) {
+      // TODO
+      return RC::SUCCESS;
+    }
+  }
+  return RC::GENERIC_ERROR;
+}
+
 RC Table::create_index(Trx *trx, const char *index_name, const char *attribute_name)
 {
   if (common::is_blank(index_name) || common::is_blank(attribute_name)) {
