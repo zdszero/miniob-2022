@@ -38,7 +38,7 @@ public:
   void to_string(std::ostream &os) const;
 
   int compare(const TupleCell &other) const;
-  bool wildcard_compare(const TupleCell &other) const;
+  bool wildcard_compare(const TupleCell &other, bool is_not) const;
 
   const char *data() const
   {

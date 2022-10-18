@@ -65,10 +65,14 @@ int TupleCell::compare(const TupleCell &other) const
 }
 
 
-bool TupleCell::wildcard_compare(const TupleCell &other) const {
+bool TupleCell::wildcard_compare(const TupleCell &other, bool is_not) const {
   if (attr_type_ != AttrType::CHARS || other.attr_type_ != AttrType::CHARS) {
     LOG_ERROR("type is not char in wildcard compare\n");
     return false;
   }
-  return wildcard_match(this->data_, other.data_);
+  bool ret = wildcard_match(this->data_, other.data_);
+  if (is_not) {
+    return !ret;
+  }
+  return ret;
 }
