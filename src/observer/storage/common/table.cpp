@@ -552,8 +552,8 @@ static RC insert_index_record_reader_adapter(Record *record, void *context)
 RC Table::show_index(std::stringstream &ss) {
   ss << "Table | Non_unique | Key_name | Seq_in_index | Column_name\n";
   for (Index *index : indexes_) {
-    ss << table_meta_.name() << " | " << (indexes_.size() == 1 ? 1 : 0) << " | "
-      << index->index_meta().name() << " | " << 0 << " | "
+    ss << table_meta_.name() << " | " << 1 << " | "
+      << index->index_meta().name() << " | " << 1 << " | "
       << index->index_meta().field() << "\n";
   };
   return RC::SUCCESS;
