@@ -863,6 +863,23 @@ RC BplusTreeHandler::close()
   return RC::SUCCESS;
 }
 
+RC BplusTreeHandler::drop() {
+
+  if (disk_buffer_pool_ != nullptr) {
+    BufferPoolManager &bpm = BufferPoolManager::instance();
+    int remove_ret = bpm.remove_file(disk_buffer_pool_->file_name().c_str());
+    if (remove_ret < 0) {
+      return RC::GENERIC_ERROR;
+    }
+
+    delete mem_pool_item_;
+    mem_pool_item_ = nullptr;
+  }
+
+  disk_buffer_pool_ = nullptr;
+  return RC::SUCCESS;
+}
+
 RC BplusTreeHandler::print_leaf(Frame *frame)
 {
   LeafIndexNodeHandler leaf_node(file_header_, frame);

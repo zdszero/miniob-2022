@@ -84,22 +84,14 @@ RC Db::create_table(const char *table_name, int attribute_count, const AttrInfo 
   return RC::SUCCESS;
 }
 
-RC Db::drop_table(const char *table_name) {
-  if (!find_table(table_name)) {
-    return RC::SUCCESS;
+RC Db::drop_table(const char *table_name)
+{
+  Table *table = find_table(table_name);
+  if (table == nullptr) {
+    return RC::SCHEMA_TABLE_NOT_EXIST;
   }
-  char meta_path[128];
-  char data_path[128];
-  sprintf(meta_path, "%s/%s%s", path_.c_str(), table_name, TABLE_META_SUFFIX);
-  sprintf(data_path, "%s/%s%s", path_.c_str(), table_name, TABLE_DATA_SUFFIX);
-  int ret = remove(meta_path);
-  if (ret < 0) {
-    return RC::GENERIC_ERROR;
-  }
-  ret = remove(data_path);
-  if (ret < 0) {
-    return RC::GENERIC_ERROR;
-  }
+  table->drop();
+  opened_tables_.erase(table_name);
   return RC::SUCCESS;
 }
 

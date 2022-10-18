@@ -675,6 +675,17 @@ RC BufferPoolManager::close_file(const char *_file_name)
   return RC::SUCCESS;
 }
 
+RC BufferPoolManager::remove_file(const char *file_name) {
+  RC rc = close_file(file_name);
+  int remove_ret = ::remove(file_name);
+  if (remove_ret < 0) {
+    LOG_ERROR("cannot remove file %s in bpm\n", file_name);
+    return RC::GENERIC_ERROR;
+  }
+  printf("file %s is removed\n", file_name);
+  return rc;
+}
+
 RC BufferPoolManager::flush_page(Frame &frame)
 {
   int fd = frame.file_desc();

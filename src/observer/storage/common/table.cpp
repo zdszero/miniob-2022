@@ -120,6 +120,37 @@ RC Table::create(
   return rc;
 }
 
+RC Table::drop() {
+  // for indexes and data
+  // 1. remove meta and data page
+  // 2. release memory in bpm
+  RC rc = RC::SUCCESS;
+  
+  // indexes
+  for (Index *index : indexes_) {
+    rc = index->drop();
+    if (rc != RC::SUCCESS) {
+      LOG_ERROR("fail to remove index %s\n", index->index_meta().name());
+      return rc;
+    }
+  }
+
+  // table
+  BufferPoolManager &bpm = BufferPoolManager::instance();
+  std::string data_file = table_data_file(base_dir_.c_str(), name());
+  rc = bpm.remove_file(data_file.c_str());
+  if (rc != RC::SUCCESS) {
+    return rc;
+  }
+  std::string meta = table_meta_file(base_dir_.c_str(), name());
+  int remove_ret = ::remove(meta.c_str());
+  if (remove_ret < 0) {
+    LOG_ERROR("fail to remove meta file %s\n", meta.c_str());
+    rc = RC::FILE_NOT_EXIST;
+  }
+  return rc;
+}
+
 RC Table::open(const char *meta_file, const char *base_dir, CLogManager *clog_manager)
 {
   // 加载元数据文件

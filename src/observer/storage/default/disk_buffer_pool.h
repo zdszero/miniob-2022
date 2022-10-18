@@ -288,6 +288,8 @@ public:
    * 回放日志时处理page0中已被认定为不存在的page
    */
   RC recover_page(PageNum page_num);
+
+  std::string file_name() const { return file_name_; }
 protected:
 protected:
   RC allocate_frame(PageNum page_num, Frame **buf);
@@ -325,6 +327,7 @@ public:
   RC create_file(const char *file_name);
   RC open_file(const char *file_name, DiskBufferPool *&bp);
   RC close_file(const char *file_name);
+  RC remove_file(const char *file_name);
 
   RC flush_page(Frame &frame);
 
