@@ -58,6 +58,12 @@ void value_init_string(Value *value, const char *v)
   value->type = CHARS;
   value->data = strdup(v);
 }
+void value_init_date(Value *value, int32_t v)
+{
+  value->type = DATES;
+  value->data = malloc(sizeof(v));
+  memcpy(value->data, &v, sizeof(v));
+}
 void value_destroy(Value *value)
 {
   value->type = UNDEFINED;

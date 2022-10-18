@@ -52,7 +52,7 @@ public:
   virtual StmtType type() const = 0;
 
 public:
-  static RC create_stmt(Db *db, const Query &query, Stmt *&stmt);
+  static RC create_stmt(Db *db, Query &query, Stmt *&stmt);
 
 private:
 };

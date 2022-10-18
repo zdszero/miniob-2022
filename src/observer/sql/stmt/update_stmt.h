@@ -31,7 +31,7 @@ public:
   StmtType type() const override { return StmtType::UPDATE; }
 
 public:
-  static RC create(Db *db, const Updates &update_sql, Stmt *&stmt);
+  static RC create(Db *db, Updates &update_sql, Stmt *&stmt);
   Table *table() const { return table_; }
   FilterStmt *filter_stmt() const { return filter_stmt_; }
   const FieldMeta* update_field_meta() { return update_field_meta_; }

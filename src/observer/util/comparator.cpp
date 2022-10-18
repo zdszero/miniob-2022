@@ -13,6 +13,7 @@ See the Mulan PSL v2 for more details. */
 //
 
 #include "comparator.h"
+#include <string>
 #include <vector>
 #include <cstring>
 

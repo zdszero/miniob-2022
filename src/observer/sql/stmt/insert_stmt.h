@@ -31,7 +31,7 @@ public:
     return StmtType::INSERT;
   }
 public:
-  static RC create(Db *db, const Inserts &insert_sql, Stmt *&stmt);
+  static RC create(Db *db, Inserts &insert_sql, Stmt *&stmt);
 
 public:
   Table *table() const {return table_;}

@@ -16,6 +16,7 @@ See the Mulan PSL v2 for more details. */
 #include "storage/common/field.h"
 #include "common/log/log.h"
 #include "util/comparator.h"
+#include "util/date.h"
 #include "util/util.h"
 
 void TupleCell::to_string(std::ostream &os) const
@@ -27,6 +28,10 @@ void TupleCell::to_string(std::ostream &os) const
   case FLOATS: {
     float v = *(float *)data_;
     os << double2string(v);
+  } break;
+  case DATES: {
+    int32_t date = *(int32_t *)data_;
+    os << date_to_string(date);
   } break;
   case CHARS: {
     for (int i = 0; i < length_; i++) {
@@ -49,6 +54,7 @@ int TupleCell::compare(const TupleCell &other) const
     case INTS: return compare_int(this->data_, other.data_);
     case FLOATS: return compare_float(this->data_, other.data_);
     case CHARS: return compare_string(this->data_, this->length_, other.data_, other.length_);
+    case DATES: return compare_int(this->data_, other.data_);
     default: {
       LOG_WARN("unsupported type: %d", this->attr_type_);
     }

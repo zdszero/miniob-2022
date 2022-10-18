@@ -33,7 +33,7 @@ public:
 
   StmtType type() const override { return StmtType::DELETE; }
 public:
-  static RC create(Db *db, const Deletes &delete_sql, Stmt *&stmt);
+  static RC create(Db *db, Deletes &delete_sql, Stmt *&stmt);
 
 private:
   Table *table_ = nullptr;

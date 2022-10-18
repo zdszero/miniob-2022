@@ -15,9 +15,11 @@ See the Mulan PSL v2 for more details. */
 #include "rc.h"
 #include "common/log/log.h"
 #include "common/lang/string.h"
+#include "sql/parser/parse_defs.h"
 #include "sql/stmt/filter_stmt.h"
 #include "storage/common/db.h"
 #include "storage/common/table.h"
+#include "util/date.h"
 
 FilterStmt::~FilterStmt()
 {
@@ -28,7 +30,7 @@ FilterStmt::~FilterStmt()
 }
 
 RC FilterStmt::create(Db *db, Table *default_table, std::unordered_map<std::string, Table *> *tables,
-		      const Condition *conditions, int condition_num,
+		      Condition *conditions, int condition_num,
 		      FilterStmt *&stmt)
 {
   RC rc = RC::SUCCESS;
@@ -79,7 +81,7 @@ RC get_table_and_field(Db *db, Table *default_table, std::unordered_map<std::str
 }
 
 RC FilterStmt::create_filter_unit(Db *db, Table *default_table, std::unordered_map<std::string, Table *> *tables,
-				  const Condition &condition, FilterUnit *&filter_unit)
+				  Condition &condition, FilterUnit *&filter_unit)
 {
   RC rc = RC::SUCCESS;
   
@@ -102,6 +104,15 @@ RC FilterStmt::create_filter_unit(Db *db, Table *default_table, std::unordered_m
     left = new FieldExpr(table, field);
   } else {
     left = new ValueExpr(condition.left_value);
+    if (condition.left_value.type == CHARS) {
+      int32_t date = -1;
+      RC rc = string_to_date((char *)condition.left_value.data, date);
+      if (rc != RC::SUCCESS) {
+      	return rc;
+      }
+      value_destroy(&condition.left_value);
+      value_init_date(&condition.left_value, date);
+    }
   }
 
   if (condition.right_is_attr) {
@@ -115,6 +126,15 @@ RC FilterStmt::create_filter_unit(Db *db, Table *default_table, std::unordered_m
     }
     right = new FieldExpr(table, field);
   } else {
+    if (condition.right_value.type == CHARS) {
+      int32_t date = -1;
+      RC rc = string_to_date((char *)condition.right_value.data, date);
+      if (rc != RC::SUCCESS) {
+      	return rc;
+      }
+      value_destroy(&condition.right_value);
+      value_init_date(&condition.right_value, date);
+    }
     right = new ValueExpr(condition.right_value);
   }
 

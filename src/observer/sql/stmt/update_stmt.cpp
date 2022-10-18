@@ -22,7 +22,7 @@ UpdateStmt::~UpdateStmt() {
   }
 }
 
-RC UpdateStmt::create(Db *db, const Updates &updates_sql, Stmt *&stmt)
+RC UpdateStmt::create(Db *db, Updates &updates_sql, Stmt *&stmt)
 {
   // UPDATE field = value ON table WHERE filter
   const char *table_name = updates_sql.relation_name;
