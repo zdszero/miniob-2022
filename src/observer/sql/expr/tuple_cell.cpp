@@ -63,3 +63,12 @@ int TupleCell::compare(const TupleCell &other) const
   LOG_WARN("not supported");
   return -1; // TODO return rc?
 }
+
+
+bool TupleCell::wildcard_compare(const TupleCell &other) const {
+  if (attr_type_ != AttrType::CHARS || other.attr_type_ != AttrType::CHARS) {
+    LOG_ERROR("type is not char in wildcard compare\n");
+    return false;
+  }
+  return wildcard_match(this->data_, other.data_);
+}
