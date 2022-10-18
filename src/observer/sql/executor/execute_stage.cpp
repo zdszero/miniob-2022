@@ -590,7 +590,8 @@ RC ExecuteStage::do_insert(SQLStageEvent *sql_event)
   return rc;
 }
 
-RC ExecuteStage::do_update(SQLStageEvent *sql_event) {
+RC ExecuteStage::do_update(SQLStageEvent *sql_event)
+{
   Stmt *stmt = sql_event->stmt();
   SessionEvent *session_event = sql_event->session_event();
   Session *session = session_event->session();

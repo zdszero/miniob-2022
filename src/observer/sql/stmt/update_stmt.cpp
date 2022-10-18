@@ -24,18 +24,26 @@ UpdateStmt::~UpdateStmt() {
 
 RC UpdateStmt::create(Db *db, const Updates &updates_sql, Stmt *&stmt)
 {
-  if (nullptr == db) {
-    LOG_WARN("invalid argument. db is null");
+  // UPDATE field = value ON table WHERE filter
+  const char *table_name = updates_sql.relation_name;
+  if (nullptr == db || table_name == nullptr) {
+    LOG_WARN("invalid argument. db=%p, table_name=%p", db, table_name);
     return RC::INVALID_ARGUMENT;
   }
 
-  // UPDATE field = value ON table WHERE filter
   // table
-  const char *table_name = updates_sql.relation_name;
   Table *table = db->find_table(table_name);
+  if (nullptr == table) {
+    LOG_WARN("no such table. db=%s, table_name=%s", db->name(), table_name);
+    return RC::SCHEMA_TABLE_NOT_EXIST;
+  }
   // field
   const char *attr_name = updates_sql.attribute_name;
   const FieldMeta *field_meta = table->table_meta().field(attr_name);
+  if (field_meta == nullptr) {
+    LOG_WARN("no such field. field=%s.%s.%s", db->name(), table->name(), attr_name);
+    return RC::SCHEMA_FIELD_MISSING;
+  }
   // filter
   std::unordered_map<std::string, Table *> table_map;
   FilterStmt *filter_stmt = nullptr;
