@@ -65,42 +65,37 @@ int TupleCell::compare(const TupleCell &other) const
   switch (this->attr_type_) {
     case INTS:
       {
-        int v;
+        float myfv = static_cast<float>(*(int *)this->data_);
+        float otherfv;
         if (other.attr_type_ == FLOATS) {
-          float fv = *(float *)other.data_;
-          int iv = *(int *)this->data_;
-          if (fv == iv) {
-            return 0;
-          } else if (iv < fv) {
-            return -1;
-          } else {
-            return 1;
-          }
+          otherfv = *(float *)other.data_;
         } else {
           assert(other.attr_type_ == CHARS);
-          v = std::atoi(other.data_);
+          otherfv = std::atof(other.data_);
         }
-        return compare_int(this->data_, &v);
+        return compare_float(&myfv, &otherfv);
       }
     case FLOATS:
       {
-        float v;
+        float myfv = *(float *)this->data_;
+        float otherfv;
         if (other.attr_type_ == INTS) {
-          v = static_cast<float>(*(int *)other.data_);
+          otherfv = static_cast<float>(*(int *)other.data_);
         } else {
           assert(other.attr_type_ == CHARS);
-          v = std::atof(other.data_);
+          otherfv = std::atof(other.data_);
         }
-        return compare_float(this->data_, &v);
+        return compare_float(&myfv, &otherfv);
       }
     case CHARS:
       {
+        float myfv = std::atof(this->data_);
+        float otherfv;
         if (other.attr_type_ == INTS) {
-          int v = std::atoi(this->data_);
-          return compare_int(&v, other.data_);
+          otherfv = static_cast<float>(*(int *)other.data_);
+          return compare_float(&myfv, &otherfv);
         } else if (other.attr_type_ == FLOATS) {
-          float v = std::atof(this->data_);
-          return compare_float(&v, other.data_);
+          return compare_float(&myfv, &otherfv);
         } else {
           int32_t date;
           RC rc = string_to_date(this->data_, date);
