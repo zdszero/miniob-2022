@@ -63,7 +63,7 @@ RC InsertStmt::create(Db *db, Inserts &inserts, Stmt *&stmt)
       switch (field_type) {
         case INTS:
           if (value.type == FLOATS) {
-            int int_val = static_cast<int>(*(float *)value.data);
+            int int_val = static_cast<int>(*(float *)value.data+0.5);
             value_destroy(&value);
             value_init_integer(&value, int_val);
           } else {

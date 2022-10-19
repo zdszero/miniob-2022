@@ -67,7 +67,7 @@ int TupleCell::compare(const TupleCell &other) const
       {
         int v;
         if (other.attr_type_ == FLOATS) {
-          v = static_cast<int>(*(float *)other.data_);
+          v = static_cast<int>(*(float *)other.data_+0.5);
         } else {
           assert(other.attr_type_ == CHARS);
           v = std::atoi(other.data_);
