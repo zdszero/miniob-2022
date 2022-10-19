@@ -68,13 +68,6 @@ RC InsertStmt::create(Db *db, Inserts &inserts, Stmt *&stmt)
             value_init_integer(&value, int_val);
           } else {
             assert(value.type == CHARS);
-            AttrType to_type;
-            if (!is_number((char *)value.data, to_type)) {
-              return RC::SCHEMA_FIELD_TYPE_MISMATCH;
-            }
-            if (to_type == FLOATS) {
-              return RC::SCHEMA_FIELD_TYPE_MISMATCH;
-            }
             int int_val = std::atoi((char *)value.data);
             value_destroy(&value);
             value_init_integer(&value, int_val);
@@ -87,10 +80,6 @@ RC InsertStmt::create(Db *db, Inserts &inserts, Stmt *&stmt)
             value_init_float(&value, float_val);
           } else {
             assert(value.type == CHARS);
-            AttrType to_type;
-            if (!is_number((char *)value.data, to_type)) {
-              return RC::SCHEMA_FIELD_TYPE_MISMATCH;
-            }
             float float_val = std::atof((char *)value.data);
             value_destroy(&value);
             value_init_float(&value, float_val);

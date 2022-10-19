@@ -137,7 +137,7 @@ RC FilterStmt::create_filter_unit(Db *db, Table *default_table, std::unordered_m
     FieldExpr *field_expr = dynamic_cast<FieldExpr *>(right);
     rc = check_field_with_value(field_expr->field().attr_type(), condition.left_value);
   } else {
-    rc = check_values(condition.left_value, condition.right_value);
+    rc = RC::SUCCESS;
   }
 
   return rc;
@@ -146,27 +146,18 @@ RC FilterStmt::create_filter_unit(Db *db, Table *default_table, std::unordered_m
 RC FilterStmt::check_field_with_value(AttrType field_type, Value &expr_value) {
   RC rc = RC::SUCCESS;
   assert(expr_value.type != DATES);
-  AttrType tmp;
   switch (field_type) {
     case INTS:
     case FLOATS:
-      if (!is_numeric_type(expr_value.type) && !is_number((char *)expr_value.data, tmp)) {
-	return RC::MISMATCH;
-      }
-      break;
     case CHARS:
-      if (is_numeric_type(expr_value.type)) {
-      	return RC::MISMATCH;
-      }
       break;
     case DATES:
-      if (is_numeric_type(expr_value.type)) {
-      	return RC::MISMATCH;
-      }
-      int32_t date;
-      rc = string_to_date((char *)expr_value.data, date);
-      if (rc != SUCCESS) {
-      	return RC::MISMATCH;
+      if (expr_value.type == CHARS) {
+	int32_t date;
+	rc = string_to_date((char *)expr_value.data, date);
+	if (rc != SUCCESS) {
+	  return RC::MISMATCH;
+	}
       }
       break;
     default:
@@ -174,22 +165,4 @@ RC FilterStmt::check_field_with_value(AttrType field_type, Value &expr_value) {
       return RC::INTERNAL;
   }
   return rc;
-}
-
-RC FilterStmt::check_values(Value &left, Value &right) {
-  if (is_numeric_type(left.type) && is_numeric_type(right.type)) {
-    return RC::SUCCESS;
-  }
-  if (left.type == CHARS && right.type == CHARS) {
-    return RC::SUCCESS;
-  }
-  // char and numeric
-  AttrType tmp;
-  if (left.type == CHARS && !is_number((char *)left.data, tmp)) {
-    return RC::MISMATCH;
-  }
-  if (right.type == CHARS && !is_number((char *)right.data, tmp)) {
-    return RC::MISMATCH;
-  }
-  return RC::SUCCESS;
 }

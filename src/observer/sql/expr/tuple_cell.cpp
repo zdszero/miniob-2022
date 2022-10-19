@@ -102,11 +102,17 @@ int TupleCell::compare(const TupleCell &other) const
       }
     case DATES:
       {
-        assert(other.attr_type_ == CHARS);
-        int32_t date;
-        RC rc = string_to_date(other.data_, date);
-        assert(rc == RC::SUCCESS);
-        return compare_int(this->data_, &date);
+        if (other.attr_type_ == CHARS) {
+          int32_t date;
+          RC rc = string_to_date(other.data_, date);
+          assert(rc == RC::SUCCESS);
+          return compare_int(this->data_, &date);
+        } else if (other.attr_type_ == FLOATS) {
+          int v = static_cast<int>(*(float *)other.data_);
+          return compare_int(this->data_, &v);
+        }
+        assert(other.attr_type_ == INTS);
+        return compare_int(this->data_, other.data_);
       }
     default:
       LOG_ERROR("unsupported type: %d", this->attr_type_);

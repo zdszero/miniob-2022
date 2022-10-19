@@ -35,30 +35,3 @@ bool is_numeric_type(AttrType type)
 {
   return type == INTS || type == FLOATS;
 }
-
-bool is_number(const std::string &s, AttrType &to_type)
-{
-  if (s.empty())
-    return false;
-  int dots_count = 0;
-  for (char c : s) {
-    if (c == '.') {
-      dots_count++;
-      continue;
-    }
-    if (c >= '0' && c <= '9') {
-      continue;
-    }
-    return false;
-  }
-  if (dots_count == 0) {
-    to_type = INTS;
-    return true;
-  }
-  if (dots_count > 1) {
-    return false;
-  }
-  // dots_count == 1
-  to_type = FLOATS;
-  return true;
-}
