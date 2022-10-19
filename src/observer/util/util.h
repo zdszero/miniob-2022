@@ -14,6 +14,9 @@ See the Mulan PSL v2 for more details. */
 
 #pragma once
 
+#include "sql/parser/parse_defs.h"
 #include <string>
 
 std::string double2string(double v);
+bool is_numeric_type(AttrType type);
+bool is_number(const std::string &s, AttrType &to_type);

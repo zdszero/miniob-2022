@@ -46,6 +46,6 @@ inline std::string date_to_string(int32_t date) {
   date %= 10000;
   month = date / 100;
   day = date % 100;
-  sprintf(buf, "%4d-%2d-%2d", year, month, day);
+  sprintf(buf, "%4d-%02d-%02d", year, month, day);
   return {buf};
 }

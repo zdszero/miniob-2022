@@ -18,6 +18,8 @@ See the Mulan PSL v2 for more details. */
 #include "storage/common/db.h"
 #include "storage/common/table.h"
 #include "util/date.h"
+#include "util/util.h"
+#include <cassert>
 
 InsertStmt::InsertStmt(Table *table, const Value *values, int value_amount)
   : table_ (table), values_(values), value_amount_(value_amount)
@@ -54,21 +56,77 @@ RC InsertStmt::create(Db *db, Inserts &inserts, Stmt *&stmt)
   for (int i = 0; i < value_num; i++) {
     const FieldMeta *field_meta = table_meta.field(i + sys_field_num);
     const AttrType field_type = field_meta->type();
-    const AttrType value_type = values[i].type;
-    if (field_type != value_type) { // TODO try to convert the value type to field type
-      if (field_type == DATES) {
-        int32_t date = -1;
-        RC rc = string_to_date((char *)values[i].data, date);
-        if (rc != RC::SUCCESS) {
-          LOG_WARN("invalid date format\n");
-          return rc;
-        }
-        value_destroy(&values[i]);
-        value_init_date(&values[i], date);
-      } else {
-        LOG_WARN("field type mismatch. table=%s, field=%s, field type=%d, value_type=%d", 
-                 table_name, field_meta->name(), field_type, value_type);
-        return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+    Value &value = values[i];
+    assert(value.type != DATES);
+    assert(field_type != UNDEFINED);
+    if (field_type != value.type) {
+      switch (field_type) {
+        case INTS:
+          if (value.type == FLOATS) {
+            int int_val = static_cast<int>(*(float *)value.data);
+            value_destroy(&value);
+            value_init_integer(&value, int_val);
+          } else {
+            assert(value.type == CHARS);
+            AttrType to_type;
+            if (!is_number((char *)value.data, to_type)) {
+              return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+            }
+            if (to_type == FLOATS) {
+              return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+            }
+            int int_val = std::atoi((char *)value.data);
+            value_destroy(&value);
+            value_init_integer(&value, int_val);
+          }
+          break;
+        case FLOATS:
+          if (value.type == INTS) {
+            float float_val = static_cast<float>(*(int *)value.data);
+            value_destroy(&value);
+            value_init_float(&value, float_val);
+          } else {
+            assert(value.type == CHARS);
+            AttrType to_type;
+            if (!is_number((char *)value.data, to_type)) {
+              return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+            }
+            float float_val = std::atof((char *)value.data);
+            value_destroy(&value);
+            value_init_float(&value, float_val);
+          }
+          break;
+        case CHARS:
+          if (value.type == INTS) {
+            std::string s = std::to_string(*(int *)value.data);
+            value_destroy(&value);
+            value_init_string(&value, s.c_str());
+          } else {
+            assert(value.type == FLOATS);
+            std::string s = std::to_string(*(float *)value.data);
+            value_destroy(&value);
+            value_init_string(&value, s.c_str());
+          }
+          break;
+        case DATES:
+          if (value.type == CHARS) {
+            int32_t date = -1;
+            RC rc = string_to_date((char *)value.data, date);
+            if (rc != RC::SUCCESS) {
+              LOG_WARN("invalid date format\n");
+              return rc;
+            }
+            value_destroy(&value);
+            value_init_date(&value, date);
+          } else {
+            LOG_WARN("field type is not compatible. table=%s, field=%s, field type=%d, value.type=%d", 
+                     table_name, field_meta->name(), field_type, value.type);
+            return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+          }
+          break;
+        default:
+          LOG_ERROR("unknown field type: %d\n", field_type);
+          return RC::INTERNAL;
       }
     }
   }
