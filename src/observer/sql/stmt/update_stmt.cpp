@@ -46,10 +46,11 @@ RC UpdateStmt::create(Db *db, Updates &updates_sql, Stmt *&stmt)
   }
   // filter
   std::unordered_map<std::string, Table *> table_map;
+  table_map.insert(std::pair<std::string, Table *>(std::string(table_name), table));
   FilterStmt *filter_stmt = nullptr;
   table_map.emplace(std::pair<std::string, Table *>(table_name, table));
   RC rc = FilterStmt::create(db, table, &table_map, updates_sql.conditions, updates_sql.condition_num, filter_stmt);
-  if (rc < 0) {
+  if (rc != RC::SUCCESS) {
     LOG_WARN("cannot construct filter stmt");
     return rc;
   }

@@ -18,7 +18,6 @@ RC UpdateOperator::open() {
   }
 
   Table *table = update_stmt_->table();
-  int updated_cols = 0;
   while (RC::SUCCESS == (rc = child->next())) {
     Tuple *tuple = child->current_tuple();
     if (nullptr == tuple) {
@@ -29,17 +28,16 @@ RC UpdateOperator::open() {
     RowTuple *row_tuple = static_cast<RowTuple *>(tuple);
     Record &record = row_tuple->record();
     char *record_data = record.data();
-    update_data(record_data, update_stmt_->update_field_meta(), update_stmt_->update_value());
+    rc = update_data(record_data, update_stmt_->update_field_meta(), update_stmt_->update_value());
+    if (rc != RC::SUCCESS) {
+      return rc;
+    }
     record.set_data(record_data);
     rc = table->update_record(trx_, &record);
     if (rc != RC::SUCCESS) {
       LOG_WARN("failed to update record: %s", strrc(rc));
       return rc;
     }
-    updated_cols++;
-  }
-  if (updated_cols == 0) {
-    return RC::GENERIC_ERROR;
   }
   return RC::SUCCESS;
 }
@@ -56,7 +54,7 @@ RC UpdateOperator::close() {
 RC UpdateOperator::update_data(char *data, const FieldMeta *meta, const Value &val) {
   if (meta->type() != val.type) {
     LOG_ERROR("update meta's type and val's type are not equal\n");
-    return RC::INTERNAL;
+    return RC::SCHEMA_FIELD_TYPE_MISMATCH;
   }
   if (meta->type() == CHARS) {
     int copy_len = strlen((char *)val.data);

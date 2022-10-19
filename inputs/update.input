@@ -1,0 +1,22 @@
+create table update_table(id int, name char, id_false int);
+insert into update_table values(1, 'N01', 0);
+insert into update_table values(2, 'N02', 0);
+insert into update_table values(3, 'N03', 0);
+insert into update_table values(4, 'N04', 0);
+insert into update_table values(5, 'N05', 0);
+
+
+# 更新不存在的表
+update no_table set id = 3;
+
+# 更新不存在的字段
+update update_table set invalid_id=3;
+
+# 查询条件中包含不合法的字段
+update update_table set name = 'N1' where invalid_id > 6;
+
+# 查询调价查出来的数据集合是空（返回成功）
+update update_table set name = 'N10' where id > 6;
+
+# 使用无法转化的类型更新某个字段，比如用字符串更新整形字段
+update update_table set id="ABC";

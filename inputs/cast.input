@@ -1,0 +1,8 @@
+create table cast_table(i int, f float, d date, c char(20));
+insert into cast_table values('aaa', 2.3, '2021-10-1', 'dingzf');
+insert into cast_table values('1', '2.53a', '2008-5-12', 'chenjy');
+insert into cast_table values(2.1, '1.2dba', '2012-5-12', 'hankai');
+insert into cast_table values(2.8, '3.5', '1999-08-12', 'xiaoming');
+insert into cast_table values(4.2, 6.5, '2000-12-21', 'wangkai');
+insert into cast_table values('5a', 6.5, '2003-1-21', 14.2321);
+insert into cast_table values('6', 'abcd', '2003-1-21', 14);
