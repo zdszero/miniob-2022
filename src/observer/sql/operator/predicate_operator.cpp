@@ -74,12 +74,17 @@ bool PredicateOperator::do_predicate(RowTuple &tuple)
     left_expr->get_value(tuple, left_cell);
     right_expr->get_value(tuple, right_cell);
 
+    bool filter_result = false;
+
     if (comp == STR_LIKE || comp == STR_NOT_LIKE) {
-      return left_cell.wildcard_compare(right_cell, comp == STR_NOT_LIKE);
+       filter_result = left_cell.wildcard_compare(right_cell, comp == STR_NOT_LIKE);
+       if (!filter_result) {
+         return false;
+       }
+       continue;
     }
 
     const int compare = left_cell.compare(right_cell);
-    bool filter_result = false;
     switch (comp) {
     case EQUAL_TO: {
       filter_result = (0 == compare); 

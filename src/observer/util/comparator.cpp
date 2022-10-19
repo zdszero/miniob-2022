@@ -77,7 +77,7 @@ bool wildcard_match(std::string s, std::string p) {
     for (int j = 1; j <= n; ++j) {
       if (p[j - 1] == '%') {
         dp[i][j] = dp[i][j - 1] | dp[i - 1][j];
-      } else if (p[j - 1] == '_' || std::tolower(s[i - 1]) == std::tolower(p[j - 1])) {
+      } else if (p[j - 1] == '_' || s[i - 1] == p[j - 1]) {
         dp[i][j] = dp[i - 1][j - 1];
       }
     }
