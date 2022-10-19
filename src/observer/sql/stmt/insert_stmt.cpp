@@ -92,7 +92,7 @@ RC InsertStmt::create(Db *db, Inserts &inserts, Stmt *&stmt)
             value_init_string(&value, s.c_str());
           } else {
             assert(value.type == FLOATS);
-            std::string s = std::to_string(*(float *)value.data);
+            std::string s = double2string(*(float *)value.data);
             value_destroy(&value);
             value_init_string(&value, s.c_str());
           }
