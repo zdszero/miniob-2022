@@ -34,7 +34,7 @@ include(GoogleTest)
 #get_filename_component(<VAR> FileName
 #        PATH|ABSOLUTE|NAME|EXT|NAME_WE|REALPATH
 #        [CACHE])
-# FILE(GLOB_RECURSE ALL_SRC *.cpp)
+FILE(GLOB_RECURSE ALL_SRC *.cpp)
 # AUX_SOURCE_DIRECTORY 类似功能
 FOREACH (F ${ALL_SRC})
     get_filename_component(prjName ${F} NAME_WE)

@@ -1,0 +1,14 @@
+create table date_table(id int, birth date);
+
+insert into date_table values(1, '2020-01-21');
+insert into date_table values(2, '2020-10-21');
+insert into date_table values(3, '2020-10-21');
+insert into date_table values(4, '2005-4-13');
+insert into date_table values(5, '1999-6-3');
+insert into date_table values(6, '1984-10-3');
+insert into date_table values(9, '2038-01-19');
+insert into date_table values(11, '2042-02-02');
+
+create index BirthIndex on date_table(birth);
+
+select * from date_table where birth > '2000-01-01';
