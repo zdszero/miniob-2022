@@ -20,6 +20,7 @@ See the Mulan PSL v2 for more details. */
 #include "util/date.h"
 #include "util/util.h"
 #include <cassert>
+#include <cmath>
 
 InsertStmt::InsertStmt(Table *table, const Value *values, int value_amount)
   : table_ (table), values_(values), value_amount_(value_amount)
@@ -63,7 +64,7 @@ RC InsertStmt::create(Db *db, Inserts &inserts, Stmt *&stmt)
       switch (field_type) {
         case INTS:
           if (value.type == FLOATS) {
-            int int_val = static_cast<int>(*(float *)value.data+0.5);
+            int int_val = std::round(*(float *)value.data);
             value_destroy(&value);
             value_init_integer(&value, int_val);
           } else {

@@ -95,7 +95,7 @@ int TupleCell::compare(const TupleCell &other) const
           otherfv = static_cast<float>(*(int *)other.data_);
           return compare_float(&myfv, &otherfv);
         } else if (other.attr_type_ == FLOATS) {
-          return compare_float(&myfv, &otherfv);
+          return compare_float(&myfv, other.data_);
         } else {
           int32_t date;
           RC rc = string_to_date(this->data_, date);
