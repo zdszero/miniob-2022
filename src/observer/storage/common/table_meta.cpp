@@ -162,6 +162,10 @@ const IndexMeta *TableMeta::index(const char *name) const
 
 const IndexMeta *TableMeta::find_index_by_field(const char *field) const
 {
+  if (field == nullptr) {
+    LOG_ERROR("field should not be null\n");
+    return nullptr;
+  }
   for (const IndexMeta &index : indexes_) {
     if (0 == strcmp(index.field(), field)) {
       return &index;
