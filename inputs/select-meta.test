@@ -1,0 +1,4 @@
+CREATE TABLE Select_meta(id int, age int);
+select * from no_table;
+select home from Select_meta;
+select * from Select_meta where home='001';
