@@ -42,7 +42,15 @@ RC FilterStmt::create(Db *db, Table *default_table, std::unordered_map<std::stri
   for (int i = 0; i < condition_num; i++) {
     FilterUnit *filter_unit = nullptr;
     rc = create_filter_unit(db, default_table, tables, conditions[i], filter_unit);
-    if (rc != RC::SUCCESS) {
+    if (rc == RC::FILTER_ALWAYS) {
+      rc = RC::SUCCESS;
+      continue;
+    } else if (rc == RC::FILTER_IMPOSSIBLE) {
+      tmp_stmt->filter_units_.clear();
+      tmp_stmt->impossible_ = true;
+      rc = RC::SUCCESS;
+      break;
+    } else if (rc != RC::SUCCESS) {
       delete tmp_stmt;
       LOG_WARN("failed to create filter unit. condition index=%d", i);
       return rc;
@@ -105,7 +113,7 @@ RC FilterStmt::create_filter_unit(Db *db, Table *default_table, std::unordered_m
     }
     left = new FieldExpr(table, field);
   } else {
-    left = new ValueExpr(condition.left_value);
+    // left = new ValueExpr(condition.left_value);
   }
 
   if (condition.right_is_attr) {
@@ -119,45 +127,112 @@ RC FilterStmt::create_filter_unit(Db *db, Table *default_table, std::unordered_m
     }
     right = new FieldExpr(table, field);
   } else {
-    right = new ValueExpr(condition.right_value);
+    // right = new ValueExpr(condition.right_value);
   }
 
-  filter_unit = new FilterUnit;
-  filter_unit->set_comp(comp);
-  filter_unit->set_left(left);
-  filter_unit->set_right(right);
 
-  if (left->type() == ExprType::FIELD && right->type() == ExprType::FIELD) {
+  if (condition.left_is_attr && condition.right_is_attr) {
     LOG_ERROR("field and field filter has not been implemented yet\n");
     return RC::INTERNAL;
-  } else if (left->type() == ExprType::FIELD && right->type() == ExprType::VALUE) {
+  } else if (condition.left_is_attr && !condition.right_is_attr) {
     FieldExpr *field_expr = dynamic_cast<FieldExpr *>(left);
-    rc = check_field_with_value(field_expr->field().attr_type(), condition.right_value);
-  } else if (left->type() == ExprType::VALUE && right->type() == ExprType::FIELD) {
+    rc = check_field_with_value(field_expr->field().attr_type(), condition.right_value, comp);
+    right = new ValueExpr(condition.right_value);
+  } else if (!condition.left_is_attr && condition.right_is_attr) {
     FieldExpr *field_expr = dynamic_cast<FieldExpr *>(right);
-    rc = check_field_with_value(field_expr->field().attr_type(), condition.left_value);
+    rc = check_field_with_value(field_expr->field().attr_type(), condition.left_value, comp);
+    left = new ValueExpr(condition.left_value);
   } else {
+    left = new ValueExpr(condition.left_value);
+    right = new ValueExpr(condition.right_value);
     rc = RC::SUCCESS;
+  }
+
+  if (rc != RC::FILTER_ALWAYS && rc != RC::FILTER_IMPOSSIBLE) {
+    filter_unit = new FilterUnit;
+    filter_unit->set_comp(comp);
+    filter_unit->set_left(left);
+    filter_unit->set_right(right);
   }
 
   return rc;
 }
 
-RC FilterStmt::check_field_with_value(AttrType field_type, Value &expr_value) {
+RC FilterStmt::check_field_with_value(AttrType field_type, Value &value, CompOp op)
+{
   RC rc = RC::SUCCESS;
-  assert(expr_value.type != DATES);
+  if (field_type == value.type) {
+    return rc;
+  }
   switch (field_type) {
     case INTS:
+      {
+	float fv;
+	int v;
+	bool should_be_int = false;
+	if (value.type == CHARS) {
+	  fv = std::atof((char *)value.data);
+	  v = std::atoi((char *)value.data);
+	} else {
+	  fv = *(float *)value.data;
+	  v = static_cast<int>(fv);
+	}
+	if (fv == v) {
+	  should_be_int = true;
+	}
+	if (!should_be_int) {
+	  switch (op) {
+	    case EQUAL_TO:
+	      return RC::FILTER_IMPOSSIBLE;
+	    case NOT_EQUAL:
+	      return RC::FILTER_ALWAYS;
+	    case LESS_EQUAL:
+	    case GREAT_THAN:
+	      break;
+	    case LESS_THAN:
+	    case GREAT_EQUAL:
+	      v++;
+	      break;
+	    case STR_LIKE:
+	    case STR_NOT_LIKE:
+	      return RC::MISMATCH;
+	    default:
+	      LOG_ERROR("unknown comp\n");
+	      return RC::INTERNAL;
+	  }
+	}
+	value_destroy(&value);
+	value_init_integer(&value, v);
+      }
+      break;
     case FLOATS:
+      if (value.type == INTS) {
+        float v = static_cast<float>(*(int *)value.data);
+        value_destroy(&value);
+        value_init_float(&value, v);
+      } else {
+        float v = std::atof((char *)value.data);
+        value_destroy(&value);
+        value_init_float(&value, v);
+      }
+      break;
     case CHARS:
+      // cast field as number, this has to be implemented when getting real data
       break;
     case DATES:
-      if (expr_value.type == CHARS) {
-	int32_t date;
-	rc = string_to_date((char *)expr_value.data, date);
-	if (rc != SUCCESS) {
-	  return RC::MISMATCH;
-	}
+      if (value.type == INTS) {
+      } else if (value.type == FLOATS) {
+        int v = static_cast<int32_t>(*(float *)value.data);
+        value_destroy(&value);
+        value_init_date(&value, v);
+      } else {
+        int32_t v;
+        rc = string_to_date((char *)value.data, v);
+        if (rc != RC::SUCCESS) {
+          return rc;
+        }
+        value_destroy(&value);
+        value_init_date(&value, v);
       }
       break;
     default:
