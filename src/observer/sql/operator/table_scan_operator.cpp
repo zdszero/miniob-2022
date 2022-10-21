@@ -16,6 +16,16 @@ See the Mulan PSL v2 for more details. */
 #include "storage/common/table.h"
 #include "rc.h"
 
+TableScanOperator::~TableScanOperator()
+{
+  for (Record *rec : record_copies) {
+    delete rec;
+  }
+  for (Tuple *tuple : tuple_copies_) {
+    delete tuple;
+  }
+}
+
 RC TableScanOperator::open()
 {
   RC rc = table_->get_record_scanner(record_scanner_);
@@ -40,11 +50,23 @@ RC TableScanOperator::close()
   return record_scanner_.close_scan();
 }
 
-Tuple * TableScanOperator::current_tuple()
+Tuple *TableScanOperator::current_tuple()
 {
   tuple_.set_record(&current_record_);
   return &tuple_;
 }
+
+Tuple *TableScanOperator::current_tuple_copy()
+{
+  RowTuple *tuple_copy = new RowTuple();
+  tuple_copy->set_schema(table_, table_->table_meta().field_metas());
+  Record *rec_copy = new Record(current_record_);
+  tuple_copy->set_record(rec_copy);
+  tuple_copies_.push_back(tuple_copy);
+  record_copies.push_back(rec_copy);
+  return tuple_copy;
+}
+
 // RC TableScanOperator::tuple_cell_spec_at(int index, TupleCellSpec &spec) const
 // {
 //   return tuple_.cell_spec_at(index, spec);

@@ -27,6 +27,7 @@ See the Mulan PSL v2 for more details. */
 #include "event/sql_event.h"
 #include "event/session_event.h"
 #include "sql/expr/tuple.h"
+#include "sql/operator/multi_scan_operator.h"
 #include "sql/operator/table_scan_operator.h"
 #include "sql/operator/index_scan_operator.h"
 #include "sql/operator/predicate_operator.h"
@@ -404,40 +405,34 @@ IndexScanOperator *try_to_create_index_scan_operator(FilterStmt *filter_stmt)
 RC ExecuteStage::do_select(SQLStageEvent *sql_event)
 {
   SelectStmt *select_stmt = (SelectStmt *)(sql_event->stmt());
-  SessionEvent *session_event = sql_event->session_event();
+  // SessionEvent *session_event = sql_event->session_event();
   RC rc = RC::SUCCESS;
-  if (select_stmt->tables().size() != 1) {
-    LOG_WARN("select more than 1 tables is not supported");
-    rc = RC::UNIMPLENMENT;
-    return rc;
-  }
+  NestedScanOperator nested_scan_oper(select_stmt->tables());
+  // Operator *scan_oper = try_to_create_index_scan_operator(select_stmt->filter_stmt());
+  // if (nullptr == scan_oper) {
+  //   scan_oper = new TableScanOperator(table);
+  // }
 
-  Operator *scan_oper = try_to_create_index_scan_operator(select_stmt->filter_stmt());
-  if (nullptr == scan_oper) {
-    scan_oper = new TableScanOperator(select_stmt->tables()[0]);
-  }
-
-  DEFER([&] () {delete scan_oper;});
-
-  PredicateOperator pred_oper(select_stmt->filter_stmt());
-  pred_oper.add_child(scan_oper);
-  ProjectOperator project_oper;
-  project_oper.add_child(&pred_oper);
-  for (const Field &field : select_stmt->query_fields()) {
-    project_oper.add_projection(field.table(), field.meta());
-  }
-  rc = project_oper.open();
-  if (rc != RC::SUCCESS) {
-    LOG_WARN("failed to open operator");
-    return rc;
-  }
+  // PredicateOperator pred_oper(select_stmt->filter_stmt());
+  // pred_oper.add_child(&nested_scan_oper);
+  // ProjectOperator project_oper;
+  // project_oper.add_child(&pred_oper);
+  // for (const Field &field : select_stmt->query_fields()) {
+  //   project_oper.add_projection(field.table(), field.meta());
+  // }
+  // rc = project_oper.open();
+  // if (rc != RC::SUCCESS) {
+  //   LOG_WARN("failed to open operator");
+  //   return rc;
+  // }
 
   std::stringstream ss;
-  print_tuple_header(ss, project_oper);
-  while ((rc = project_oper.next()) == RC::SUCCESS) {
+  // print_tuple_header(ss, project_oper);
+  nested_scan_oper.open();
+  while ((rc = nested_scan_oper.next()) == RC::SUCCESS) {
     // get current record
     // write to response
-    Tuple * tuple = project_oper.current_tuple();
+    Tuple * tuple = nested_scan_oper.current_tuple();
     if (nullptr == tuple) {
       rc = RC::INTERNAL;
       LOG_WARN("failed to get current record. rc=%s", strrc(rc));
@@ -450,11 +445,13 @@ RC ExecuteStage::do_select(SQLStageEvent *sql_event)
 
   if (rc != RC::RECORD_EOF) {
     LOG_WARN("something wrong while iterate operator. rc=%s", strrc(rc));
-    project_oper.close();
+    nested_scan_oper.close();
   } else {
-    rc = project_oper.close();
+    rc = nested_scan_oper.close();
   }
-  session_event->set_response(ss.str());
+
+  std::cout << ss.str();
+  // session_event->set_response(ss.str());
   return rc;
 }
 

@@ -25,8 +25,7 @@ See the Mulan PSL v2 for more details. */
 
 class Table;
 
-class TupleCellSpec
-{
+class TupleCellSpec {
 public:
   TupleCellSpec() = default;
   TupleCellSpec(Expression *expr) : expression_(expr)
@@ -59,21 +58,19 @@ private:
   Expression *expression_ = nullptr;
 };
 
-class Tuple
-{
+class Tuple {
 public:
   Tuple() = default;
   virtual ~Tuple() = default;
 
-  virtual int cell_num() const = 0; 
-  virtual RC  cell_at(int index, TupleCell &cell) const = 0;
-  virtual RC  find_cell(const Field &field, TupleCell &cell) const = 0;
+  virtual int cell_num() const = 0;
+  virtual RC cell_at(int index, TupleCell &cell) const = 0;
+  virtual RC find_cell(const Field &field, TupleCell &cell) const = 0;
 
-  virtual RC  cell_spec_at(int index, const TupleCellSpec *&spec) const = 0;
+  virtual RC cell_spec_at(int index, const TupleCellSpec *&spec) const = 0;
 };
 
-class RowTuple : public Tuple
-{
+class RowTuple : public Tuple {
 public:
   RowTuple() = default;
   virtual ~RowTuple()
@@ -83,7 +80,7 @@ public:
     }
     speces_.clear();
   }
-  
+
   void set_record(Record *record)
   {
     this->record_ = record;
@@ -128,10 +125,10 @@ public:
 
     const char *field_name = field.field_name();
     for (size_t i = 0; i < speces_.size(); ++i) {
-      const FieldExpr * field_expr = (const FieldExpr *)speces_[i]->expression();
+      const FieldExpr *field_expr = (const FieldExpr *)speces_[i]->expression();
       const Field &field = field_expr->field();
       if (0 == strcmp(field_name, field.field_name())) {
-	return cell_at(i, cell);
+        return cell_at(i, cell);
       }
     }
     return RC::NOTFOUND;
@@ -156,6 +153,7 @@ public:
   {
     return *record_;
   }
+
 private:
   Record *record_ = nullptr;
   const Table *table_ = nullptr;
@@ -166,7 +164,7 @@ private:
 class CompositeTuple : public Tuple
 {
 public:
-  int cell_num() const override; 
+  int cell_num() const override;
   RC  cell_at(int index, TupleCell &cell) const = 0;
 private:
   int cell_num_ = 0;
@@ -174,8 +172,7 @@ private:
 };
 */
 
-class ProjectTuple : public Tuple
-{
+class ProjectTuple : public Tuple {
 public:
   ProjectTuple() = default;
   virtual ~ProjectTuple()
@@ -225,7 +222,79 @@ public:
     spec = speces_[index];
     return RC::SUCCESS;
   }
+
 private:
   std::vector<TupleCellSpec *> speces_;
   Tuple *tuple_ = nullptr;
+};
+
+class CartesianTuple : public Tuple {
+public:
+  CartesianTuple() = default;
+  virtual ~CartesianTuple() = default;
+
+  void set_tuples(const std::vector<Tuple *> &tuples)
+  {
+    tuples_ = tuples;
+  }
+
+  int cell_num() const override
+  {
+    int cell_num = 0;
+    for (Tuple *t : tuples_) {
+      cell_num += t->cell_num();
+    }
+    return cell_num;
+  }
+
+  RC cell_at(int index, TupleCell &cell) const override
+  {
+    if (index < 0 || index >= cell_num()) {
+      LOG_WARN("invalid argument. index=%d", index);
+      return RC::INVALID_ARGUMENT;
+    }
+    int cur_index = 0;
+    for (Tuple *t : tuples_) {
+      if (index < cur_index + t->cell_num()) {
+        int rel_index = index - cur_index;
+        return t->cell_at(rel_index, cell);
+      }
+      cur_index += t->cell_num();
+    }
+    LOG_ERROR("CartesianTuple::cell_at() logic error");
+    return RC::INTERNAL;
+  }
+
+  RC find_cell(const Field &field, TupleCell &cell) const override
+  {
+    RC rc = RC::SUCCESS;
+    for (Tuple *t : tuples_) {
+      rc = t->find_cell(field, cell);
+      if (rc == RC::NOTFOUND) {
+        continue;
+      }
+    }
+    return rc;
+  }
+
+  RC cell_spec_at(int index, const TupleCellSpec *&spec) const override
+  {
+    if (index < 0 || index >= cell_num()) {
+      LOG_WARN("invalid argument. index=%d", index);
+      return RC::INVALID_ARGUMENT;
+    }
+    int cur_index = 0;
+    for (Tuple *t : tuples_) {
+      if (index < cur_index + t->cell_num()) {
+        int rel_index = index - cur_index;
+				return t->cell_spec_at(rel_index, spec);
+      }
+      cur_index += t->cell_num();
+    }
+    LOG_ERROR("CartesianTuple::cell_at() logic error");
+    return RC::INTERNAL;
+  }
+
+private:
+  std::vector<Tuple *> tuples_;
 };

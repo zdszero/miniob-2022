@@ -27,13 +27,14 @@ public:
     : table_(table)
   {}
 
-  virtual ~TableScanOperator() = default;
+  virtual ~TableScanOperator();
 
   RC open() override;
   RC next() override;
   RC close() override;
 
   Tuple * current_tuple() override;
+  Tuple * current_tuple_copy();
 
   // int tuple_cell_num() const override
   // {
@@ -46,4 +47,6 @@ private:
   RecordFileScanner record_scanner_;
   Record current_record_;
   RowTuple tuple_;
+  std::vector<Tuple *> tuple_copies_;
+  std::vector<Record *> record_copies;
 };
