@@ -99,5 +99,6 @@ private:
   std::vector<FilterUnit *>  filter_units_; // 默认当前都是AND关系
   bool impossible_{false};
 
+  static RC check_two_fields(FieldExpr *left, FieldExpr *right);
   static RC check_field_with_value(AttrType field_type, Value &value, CompOp op);
 };

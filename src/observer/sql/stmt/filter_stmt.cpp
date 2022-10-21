@@ -132,8 +132,7 @@ RC FilterStmt::create_filter_unit(Db *db, Table *default_table, std::unordered_m
 
 
   if (condition.left_is_attr && condition.right_is_attr) {
-    LOG_ERROR("field and field filter has not been implemented yet\n");
-    return RC::INTERNAL;
+    rc = check_two_fields(static_cast<FieldExpr *>(left), static_cast<FieldExpr *>(right));
   } else if (condition.left_is_attr && !condition.right_is_attr) {
     FieldExpr *field_expr = dynamic_cast<FieldExpr *>(left);
     rc = check_field_with_value(field_expr->field().attr_type(), condition.right_value, comp);
@@ -240,4 +239,16 @@ RC FilterStmt::check_field_with_value(AttrType field_type, Value &value, CompOp 
       return RC::INTERNAL;
   }
   return rc;
+}
+
+RC FilterStmt::check_two_fields(FieldExpr *left, FieldExpr *right)
+{
+  AttrType ltype = left->field().attr_type();
+  AttrType rtype = right->field().attr_type();
+  // printf("types: %d, %d\n", ltype, rtype);
+  if (ltype == rtype) {
+    return RC::SUCCESS;
+  }
+  LOG_ERROR("compare two fields with different types: %d, %d\n", ltype, rtype);
+  return RC::MISMATCH;
 }

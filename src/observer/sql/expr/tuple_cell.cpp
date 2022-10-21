@@ -51,6 +51,7 @@ void TupleCell::to_string(std::ostream &os) const
 
 int TupleCell::compare(const TupleCell &other) const
 {
+  assert(this->attr_type_ != UNDEFINED && other.attr_type_ != UNDEFINED);
   if (this->attr_type_ == other.attr_type_) {
     switch (this->attr_type_) {
       case INTS: return compare_int(this->data_, other.data_);

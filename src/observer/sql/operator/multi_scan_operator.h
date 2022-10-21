@@ -14,6 +14,13 @@ class NestedScanOperator : public Operator {
     {
       if (tuple_sets->size() == 0) {
         end_ = true;
+        return;
+      }
+      for (const TupleSet &set : *tuple_sets) {
+        if (set.empty()) {
+          end_ = true;
+          return;
+        }
       }
       tuple_sets_ = tuple_sets;
       indexes_.resize(tuple_sets->size(), 0);
