@@ -82,6 +82,7 @@ QUOTE            [\'\"]
 "="                                                  RETURN_TOKEN(EQ);
 "<="                                                 RETURN_TOKEN(LE);
 "<>"                                                 RETURN_TOKEN(NE);
+"!="                                                 RETURN_TOKEN(NE);
 "<"                                                  RETURN_TOKEN(LT);
 ">="                                                 RETURN_TOKEN(GE);
 ">"                                                  RETURN_TOKEN(GT);
