@@ -27,3 +27,12 @@ SELECT * from Select_tables_4, Select_tables_5 where Select_tables_4.id=Select_t
 select * from Select_tables_4, Select_tables_5 where Select_tables_4.id >= Select_tables_5.id;
 CREATE TABLE Select_tables_6(id int, res int);
 SELECT Select_tables_1.id,Select_tables_6.id from Select_tables_1, Select_tables_6 where Select_tables_1.id=Select_tables_6.id;
+
+create table Select_tables_7(col1 int, col2 char, col3 int, col4 int);
+create table Select_tables_8(col1 int, col2 float);
+insert into Select_tables_7 values(1, 'A', 9, 1);
+insert into Select_tables_7 values(1, 'A', 2, 1);
+insert into Select_tables_7 values(1, 'A', 3, 2);
+insert into Select_tables_8 values(0, 9.5);
+insert into Select_tables_8 values(1, 10.5);
+insert into Select_tables_8 values(2, 11.5);
