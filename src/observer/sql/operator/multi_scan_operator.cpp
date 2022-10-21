@@ -22,7 +22,7 @@ RC NestedScanOperator::open() {
     tuple_sets_.push_back(tuple_set);
   }
   iter.Init(&tuple_sets_);
-  return rc;
+  return RC::SUCCESS;
 }
 
 RC NestedScanOperator::next() {

@@ -270,8 +270,8 @@ public:
     RC rc = RC::SUCCESS;
     for (Tuple *t : tuples_) {
       rc = t->find_cell(field, cell);
-      if (rc == RC::NOTFOUND) {
-        continue;
+      if (rc == RC::SUCCESS) {
+        break;
       }
     }
     return rc;

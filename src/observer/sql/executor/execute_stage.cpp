@@ -405,7 +405,7 @@ IndexScanOperator *try_to_create_index_scan_operator(FilterStmt *filter_stmt)
 RC ExecuteStage::do_select(SQLStageEvent *sql_event)
 {
   SelectStmt *select_stmt = (SelectStmt *)(sql_event->stmt());
-  // SessionEvent *session_event = sql_event->session_event();
+  SessionEvent *session_event = sql_event->session_event();
   RC rc = RC::SUCCESS;
   NestedScanOperator nested_scan_oper(select_stmt->tables());
   // Operator *scan_oper = try_to_create_index_scan_operator(select_stmt->filter_stmt());
@@ -413,26 +413,26 @@ RC ExecuteStage::do_select(SQLStageEvent *sql_event)
   //   scan_oper = new TableScanOperator(table);
   // }
 
-  // PredicateOperator pred_oper(select_stmt->filter_stmt());
-  // pred_oper.add_child(&nested_scan_oper);
-  // ProjectOperator project_oper;
-  // project_oper.add_child(&pred_oper);
-  // for (const Field &field : select_stmt->query_fields()) {
-  //   project_oper.add_projection(field.table(), field.meta());
-  // }
-  // rc = project_oper.open();
-  // if (rc != RC::SUCCESS) {
-  //   LOG_WARN("failed to open operator");
-  //   return rc;
-  // }
+  PredicateOperator pred_oper(select_stmt->filter_stmt());
+  pred_oper.add_child(&nested_scan_oper);
+  ProjectOperator project_oper;
+  project_oper.add_child(&pred_oper);
+  for (const Field &field : select_stmt->query_fields()) {
+    project_oper.add_projection(field.table(), field.meta());
+  }
+  rc = project_oper.open();
+  if (rc != RC::SUCCESS) {
+    LOG_WARN("failed to open operator");
+    return rc;
+  }
 
   std::stringstream ss;
-  // print_tuple_header(ss, project_oper);
-  nested_scan_oper.open();
-  while ((rc = nested_scan_oper.next()) == RC::SUCCESS) {
+  print_tuple_header(ss, project_oper);
+  // nested_scan_oper.open();
+  while ((rc = project_oper.next()) == RC::SUCCESS) {
     // get current record
     // write to response
-    Tuple * tuple = nested_scan_oper.current_tuple();
+    Tuple * tuple = project_oper.current_tuple();
     if (nullptr == tuple) {
       rc = RC::INTERNAL;
       LOG_WARN("failed to get current record. rc=%s", strrc(rc));
@@ -450,8 +450,7 @@ RC ExecuteStage::do_select(SQLStageEvent *sql_event)
     rc = nested_scan_oper.close();
   }
 
-  std::cout << ss.str();
-  // session_event->set_response(ss.str());
+  session_event->set_response(ss.str());
   return rc;
 }
 
