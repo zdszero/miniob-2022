@@ -418,7 +418,7 @@ RC ExecuteStage::do_select(SQLStageEvent *sql_event)
   ProjectOperator project_oper;
   project_oper.add_child(&pred_oper);
   for (const Field &field : select_stmt->query_fields()) {
-    project_oper.add_projection(field.table(), field.meta());
+    project_oper.add_projection(field, select_stmt->tables().size()>1);
   }
   rc = project_oper.open();
   if (rc != RC::SUCCESS) {
