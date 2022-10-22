@@ -26,8 +26,7 @@ class Db;
 class Table;
 class FieldMeta;
 
-class FilterUnit
-{
+class FilterUnit {
 public:
   FilterUnit() = default;
   ~FilterUnit()
@@ -41,12 +40,14 @@ public:
       right_ = nullptr;
     }
   }
-  
-  void set_comp(CompOp comp) {
+
+  void set_comp(CompOp comp)
+  {
     comp_ = comp;
   }
 
-  CompOp comp() const {
+  CompOp comp() const
+  {
     return comp_;
   }
 
@@ -72,15 +73,27 @@ public:
     left_ = right_;
     right_ = tmp;
     switch (comp_) {
-      case EQUAL_TO:    { comp_ = EQUAL_TO; }    break;
-      case LESS_EQUAL:  { comp_ = GREAT_THAN; }  break;
-      case NOT_EQUAL:   { comp_ = NOT_EQUAL; }   break;
-      case LESS_THAN:   { comp_ = GREAT_EQUAL; } break;
-      case GREAT_EQUAL: { comp_ = LESS_THAN; }   break;
-      case GREAT_THAN:  { comp_ = LESS_EQUAL; }  break;
+      case EQUAL_TO: {
+        comp_ = EQUAL_TO;
+      } break;
+      case LESS_EQUAL: {
+        comp_ = GREAT_THAN;
+      } break;
+      case NOT_EQUAL: {
+        comp_ = NOT_EQUAL;
+      } break;
+      case LESS_THAN: {
+        comp_ = GREAT_EQUAL;
+      } break;
+      case GREAT_EQUAL: {
+        comp_ = LESS_THAN;
+      } break;
+      case GREAT_THAN: {
+        comp_ = LESS_EQUAL;
+      } break;
       default: {
-				LOG_ERROR("cannot reverse comp type\n");
-				break;
+        LOG_ERROR("cannot reverse comp type\n");
+        break;
       }
     }
   }
@@ -91,10 +104,8 @@ private:
   Expression *right_ = nullptr;
 };
 
-class FilterStmt 
-{
+class FilterStmt {
 public:
-
   FilterStmt() = default;
   virtual ~FilterStmt();
 
@@ -106,16 +117,18 @@ public:
 
 public:
   static RC create(Db *db, Table *default_table, std::unordered_map<std::string, Table *> *tables,
-			Condition *conditions, int condition_num,
-			FilterStmt *&stmt);
+      Condition *conditions, int condition_num, FilterStmt *&stmt);
 
   static RC create_filter_unit(Db *db, Table *default_table, std::unordered_map<std::string, Table *> *tables,
-			       Condition &condition, FilterUnit *&filter_unit);
+      Condition &condition, FilterUnit *&filter_unit);
 
-  bool impossible() { return impossible_; }
+  bool impossible()
+  {
+    return impossible_;
+  }
 
 private:
-  std::vector<FilterUnit *>  filter_units_; // 默认当前都是AND关系
+  std::vector<FilterUnit *> filter_units_;  // 默认当前都是AND关系
   bool impossible_{false};
 
   static RC check_field_with_value(AttrType field_type, Value &value, CompOp op);

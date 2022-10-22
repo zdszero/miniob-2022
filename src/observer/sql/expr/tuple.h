@@ -231,8 +231,10 @@ private:
 class CartesianTuple : public Tuple {
 public:
   CartesianTuple() = default;
-  CartesianTuple(Tuple *t): tuples_(std::vector<Tuple *>{t}) {}
-  CartesianTuple(const std::vector<Tuple *> &tuples): tuples_(tuples) {}
+  CartesianTuple(Tuple *t) : tuples_(std::vector<Tuple *>{t})
+  {}
+  CartesianTuple(const std::vector<Tuple *> &tuples) : tuples_(tuples)
+  {}
   virtual ~CartesianTuple() = default;
 
   void set_tuples(const std::vector<Tuple *> &tuples)
@@ -294,7 +296,7 @@ public:
     for (Tuple *t : tuples_) {
       if (index < cur_index + t->cell_num()) {
         int rel_index = index - cur_index;
-				return t->cell_spec_at(rel_index, spec);
+        return t->cell_spec_at(rel_index, spec);
       }
       cur_index += t->cell_num();
     }

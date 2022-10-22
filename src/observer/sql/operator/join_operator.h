@@ -49,7 +49,7 @@ class HashJoinOperator : public Operator {
         temp_table_.push_back({t});
       }
       name_map_[table_name] = last_index_++;
-      printf("init table size: %ld\n", temp_table_.size());
+      printf("init table size: %ld with %s\n", temp_table_.size(), table_name.c_str());
     }
     void Combine(FieldExpr *left_expr, FieldExpr *right_expr, const TupleSet &right_set)
     {

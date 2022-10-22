@@ -39,6 +39,8 @@ RC HashJoinOperator::open()
         }
         FieldExpr *left_expr = static_cast<FieldExpr *>(unit->left());
         FieldExpr *right_expr = static_cast<FieldExpr *>(unit->right());
+        left_tbl_name = left_expr->table_name();
+        right_tbl_name = right_expr->table_name();
         assert(strcmp(right_expr->table_name(), stmt.join_table->name()) == 0);
         if (unit->comp() == CompOp::EQUAL_TO) {
           ht_.Combine(left_expr, right_expr, tuple_set);
