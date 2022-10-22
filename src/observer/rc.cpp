@@ -192,6 +192,8 @@ const char *strrc(RC rc)
 
     RC_CASE_STRING(LOGBUF_FULL);
     RC_CASE_STRING(LOGBUF_EMPTY);
+    RC_CASE_STRING(FILTER_ALWAYS);
+    RC_CASE_STRING(FILTER_IMPOSSIBLE);
     default: {
       return "UNKNOWN";
     }

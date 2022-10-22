@@ -407,7 +407,7 @@ RC ExecuteStage::do_select(SQLStageEvent *sql_event)
   SelectStmt *select_stmt = (SelectStmt *)(sql_event->stmt());
   SessionEvent *session_event = sql_event->session_event();
   RC rc = RC::SUCCESS;
-  NestedScanOperator nested_scan_oper(select_stmt->tables());
+  NestedScanOperator nested_scan_oper(select_stmt->tables(), select_stmt->join_units());
   // Operator *scan_oper = try_to_create_index_scan_operator(select_stmt->filter_stmt());
   // if (nullptr == scan_oper) {
   //   scan_oper = new TableScanOperator(table);

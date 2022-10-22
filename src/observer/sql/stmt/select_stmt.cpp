@@ -18,6 +18,7 @@ See the Mulan PSL v2 for more details. */
 #include "common/lang/string.h"
 #include "storage/common/db.h"
 #include "storage/common/table.h"
+#include <algorithm>
 
 SelectStmt::~SelectStmt()
 {
@@ -46,7 +47,6 @@ RC SelectStmt::create(Db *db, Selects &select_sql, Stmt *&stmt)
   // collect tables in `from` statement
   std::vector<Table *> tables;
   std::unordered_map<std::string, Table *> table_map;
-  // for (size_t i = 0; i < select_sql.relation_num; i++) {
   for (int i = select_sql.relation_num - 1; i >= 0; i--) {
     const char *table_name = select_sql.relations[i];
     if (nullptr == table_name) {
@@ -61,12 +61,9 @@ RC SelectStmt::create(Db *db, Selects &select_sql, Stmt *&stmt)
     }
 
     tables.push_back(table);
-    table_map.insert(std::pair<std::string, Table*>(table_name, table));
+    table_map.insert(std::pair<std::string, Table *>(table_name, table));
   }
-  // for (Table *t : tables) {
-  //   printf("table name: %s\n", t->name());
-  // }
-  
+
   // collect query fields in `select` statement
   std::vector<Field> query_fields;
   for (int i = select_sql.attr_num - 1; i >= 0; i--) {
@@ -78,7 +75,7 @@ RC SelectStmt::create(Db *db, Selects &select_sql, Stmt *&stmt)
         wildcard_fields(table, query_fields);
       }
 
-    } else if (!common::is_blank(relation_attr.relation_name)) { // TODO
+    } else if (!common::is_blank(relation_attr.relation_name)) {  // TODO
       // something.something
       const char *table_name = relation_attr.relation_name;
       const char *field_name = relation_attr.attribute_name;
@@ -112,7 +109,7 @@ RC SelectStmt::create(Db *db, Selects &select_sql, Stmt *&stmt)
             return RC::SCHEMA_FIELD_MISSING;
           }
 
-        query_fields.push_back(Field(table, field_meta));
+          query_fields.push_back(Field(table, field_meta));
         }
       }
     } else {
@@ -146,17 +143,70 @@ RC SelectStmt::create(Db *db, Selects &select_sql, Stmt *&stmt)
 
   // create filter statement in `where` statement
   FilterStmt *filter_stmt = nullptr;
-  RC rc = FilterStmt::create(db, default_table, &table_map,
-           select_sql.conditions, select_sql.condition_num, filter_stmt);
+  RC rc =
+      FilterStmt::create(db, default_table, &table_map, select_sql.conditions, select_sql.condition_num, filter_stmt);
   if (rc != RC::SUCCESS) {
     LOG_WARN("cannot construct filter stmt");
     return rc;
+  }
+
+  // create join units
+  std::vector<JoinUnit> join_units;
+  for (size_t i = 0; i < select_sql.join_condition_num; i++) {
+    JoinCondition &join_condition = select_sql.join_conditions[i];
+    JoinUnit join_unit;
+
+    const char *left_table_name = join_condition.left_attr.relation_name;
+    const char *left_field_name = join_condition.left_attr.attribute_name;
+    const char *right_table_name = join_condition.right_attr.relation_name;
+    const char *right_field_name = join_condition.right_attr.attribute_name;
+
+    Table *left_table = db->find_table(left_table_name);
+    if (nullptr == left_table) {
+      LOG_WARN("no such table. db=%s, table_name=%s", db->name(), left_table_name);
+      return RC::SCHEMA_TABLE_NOT_EXIST;
+    }
+    Table *right_table = db->find_table(right_table_name);
+    if (nullptr == right_table) {
+      LOG_WARN("no such table. db=%s, table_name=%s", db->name(), right_table_name);
+      return RC::SCHEMA_TABLE_NOT_EXIST;
+    }
+
+    const FieldMeta *left_field_meta = left_table->table_meta().field(left_field_name);
+    if (nullptr == left_field_meta) {
+      LOG_WARN("no such field. field=%s.%s.%s", db->name(), left_table->name(), left_field_name);
+      return RC::SCHEMA_FIELD_MISSING;
+    }
+    const FieldMeta *right_field_meta = right_table->table_meta().field(right_field_name);
+    if (nullptr == right_field_meta) {
+      LOG_WARN("no such field. field=%s.%s.%s", db->name(), right_table->name(), right_field_name);
+      return RC::SCHEMA_FIELD_MISSING;
+    }
+
+    join_unit.left = FieldExpr(left_table, left_field_meta);
+    join_unit.right = FieldExpr(right_table, right_field_meta);
+    join_units.push_back(join_unit);
+  }
+
+  std::reverse(tables.end() - join_units.size(), tables.end());
+
+  for (Table *t : tables) {
+    printf("table name: %s\n", t->name());
+  }
+
+  for (const JoinUnit &unit : join_units) {
+    printf("join %s:%s %s:%s\n",
+        unit.left.table_name(),
+        unit.left.field_name(),
+        unit.right.table_name(),
+        unit.right.field_name());
   }
 
   // everything alright
   SelectStmt *select_stmt = new SelectStmt();
   select_stmt->tables_.swap(tables);
   select_stmt->query_fields_.swap(query_fields);
+  select_stmt->join_units_.swap(join_units);
   select_stmt->filter_stmt_ = filter_stmt;
   stmt = select_stmt;
   return RC::SUCCESS;

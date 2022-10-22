@@ -14,6 +14,7 @@ See the Mulan PSL v2 for more details. */
 
 #pragma once
 
+#include <cstring>
 #include <iostream>
 #include "storage/common/table.h"
 #include "storage/common/field_meta.h"
@@ -50,6 +51,13 @@ public:
   AttrType attr_type() const
   {
     return attr_type_;
+  }
+
+  bool operator==(const TupleCell &other) const
+  {
+    return attr_type_ == other.attr_type_
+      && length_ == other.length_
+      && strcmp(data_, other.data_) == 0;
   }
 
 private:

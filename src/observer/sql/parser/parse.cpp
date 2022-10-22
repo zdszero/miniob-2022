@@ -71,6 +71,18 @@ void value_destroy(Value *value)
   value->data = nullptr;
 }
 
+void join_conditoin_init(JoinCondition *join_condition, RelAttr *left_attr, RelAttr *right_attr)
+{
+  join_condition->left_attr = *left_attr;
+  join_condition->right_attr = *right_attr;
+}
+
+void join_condition_destroy(JoinCondition *join_condition)
+{
+  relation_attr_destroy(&join_condition->left_attr);
+  relation_attr_destroy(&join_condition->right_attr);
+}
+
 void condition_init(Condition *condition, CompOp comp, int left_is_attr, RelAttr *left_attr, Value *left_value,
     int right_is_attr, RelAttr *right_attr, Value *right_value)
 {
@@ -134,6 +146,15 @@ void selects_append_conditions(Selects *selects, Condition conditions[], size_t 
   selects->condition_num = condition_num;
 }
 
+void selects_append_join_conditions(Selects *selects, JoinCondition join_conditions[], size_t join_condition_num)
+{
+  assert(join_condition_num < sizeof(selects->join_conditions) / sizeof(selects->join_conditions[0]));
+  for (size_t i = 0; i < join_condition_num; i++) {
+    selects->join_conditions[i] = join_conditions[i];
+  }
+  selects->join_condition_num = join_condition_num;
+}
+
 void selects_destroy(Selects *selects)
 {
   for (size_t i = 0; i < selects->attr_num; i++) {
@@ -151,6 +172,11 @@ void selects_destroy(Selects *selects)
     condition_destroy(&selects->conditions[i]);
   }
   selects->condition_num = 0;
+
+  for (size_t i = 0; i < selects->join_condition_num; i++) {
+    join_condition_destroy(&selects->join_conditions[i]);
+  }
+  selects->join_condition_num = 0;
 }
 
 void inserts_init(Inserts *inserts, const char *relation_name, Value values[], size_t value_num)

@@ -3,7 +3,22 @@
 #include "rc.h"
 #include "sql/expr/tuple.h"
 #include "sql/operator/operator.h"
+#include "sql/stmt/select_stmt.h"
+#include "util/hash_util.h"
+#include <cassert>
+#include <unordered_map>
 #include <vector>
+
+struct TupleCellHasher {
+public:
+  hash_t operator()(const TupleCell &cell) const
+  {
+    AttrType type = cell.attr_type();
+    size_t type_hash = HashUtil::Hash(&type);
+    size_t val_hash = HashUtil::HashBytes(cell.data(), cell.length());
+    return HashUtil::CombineHashes(type_hash, val_hash);
+  }
+};
 
 class NestedScanOperator : public Operator {
   using TupleSet = std::vector<Tuple *>;
@@ -64,8 +79,67 @@ class NestedScanOperator : public Operator {
     std::vector<size_t> indexes_;
   };
 
+  class SimpleHashTable {
+    using TempTable = std::vector<TupleSet>;
+    using TempTableIter = TempTable::iterator;
+    using TempTableIters = std::vector<TempTableIter>;
+  public:
+    void Init(const std::string &table_name, TupleSet &tuple_set) {
+      for (Tuple *t : tuple_set) {
+        temp_table_.push_back(TupleSet{t});
+      }
+      name_map_[table_name] = 0;
+    }
+    void Combine(FieldExpr *left_expr, FieldExpr *right_expr, const TupleSet &right_set)
+    {
+      TempTable temp_table;
+      ht_.clear();
+      std::string left_table_name(left_expr->table_name());
+      assert(name_map_.count(left_table_name));
+      size_t name_idx = name_map_[left_table_name];
+      // build hash table
+      for (auto it = temp_table_.begin(); it != temp_table_.end(); it++) {
+        Tuple *t = it->at(name_idx);
+        TupleCell cell;
+        RC rc = left_expr->get_value(*t, cell);
+        assert(rc == RC::SUCCESS);
+        if (!ht_.count(cell)) {
+          ht_.insert({cell, TempTableIters{it}});
+        } else {
+          ht_[cell].push_back(it);
+        }
+      }
+      // combine and filter
+      for (Tuple *t : right_set) {
+        TupleCell cell;
+        RC rc = right_expr->get_value(*t, cell);
+        assert(rc == RC::SUCCESS);
+        if (!ht_.count(cell)) {
+          continue;
+        } else {
+          TempTableIters &iters = ht_[cell];
+          for (const TempTableIter &iter : iters) {
+            TupleSet new_set = *iter; // copy
+            new_set.push_back(t);
+            temp_table.push_back(new_set);
+          }
+        }
+      }
+      name_map_[right_expr->table_name()] = name_map_.size()+1;
+      assert(temp_table.size() <= temp_table.size());
+      printf("temp tbl size: %ld -> %ld\n", temp_table_.size(), temp_table.size());
+      temp_table_.swap(temp_table);
+    }
+
+  private:
+    std::unordered_map<TupleCell, TempTableIters, TupleCellHasher> ht_;
+    std::unordered_map<std::string, size_t> name_map_;
+    TempTable temp_table_;
+  };
+
 public:
-  NestedScanOperator(const std::vector<Table *> &tables) : tables_(tables)
+  NestedScanOperator(const std::vector<Table *> &tables, const std::vector<JoinUnit> &join_units)
+      : tables_(tables), join_units_(join_units), use_join_(join_units.size() > 0)
   {}
   virtual ~NestedScanOperator()
   {
@@ -81,7 +155,9 @@ public:
 
 private:
   std::vector<Table *> tables_;
+  std::vector<JoinUnit> join_units_;
   std::vector<TupleSet> tuple_sets_;
   CartesianTuple current_tuple_;
   TupleSetsIterator iter;
+  bool use_join_;
 };

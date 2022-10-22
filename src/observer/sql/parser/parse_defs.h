@@ -43,8 +43,7 @@ typedef enum {
 } CompOp;
 
 //属性值类型
-typedef enum
-{
+typedef enum {
   UNDEFINED,
   CHARS,
   INTS,
@@ -70,6 +69,12 @@ typedef struct _Condition {
   Value right_value;   // right-hand side value if right_is_attr = FALSE
 } Condition;
 
+typedef struct _JoinConditon {
+  const char *on_table_name;
+  RelAttr left_attr;
+  RelAttr right_attr;
+} JoinCondition;
+
 // struct of select
 typedef struct {
   size_t attr_num;                // Length of attrs in Select clause
@@ -78,6 +83,8 @@ typedef struct {
   char *relations[MAX_NUM];       // relations in From clause
   size_t condition_num;           // Length of conditions in Where clause
   Condition conditions[MAX_NUM];  // conditions in Where clause
+  size_t join_condition_num;
+  JoinCondition join_conditions[MAX_NUM];
 } Selects;
 
 // struct of insert
@@ -202,6 +209,9 @@ void value_init_float(Value *value, float v);
 void value_init_string(Value *value, const char *v);
 void value_init_date(Value *value, int32_t v);
 void value_destroy(Value *value);
+
+void join_conditoin_init(JoinCondition *join_condition, RelAttr *left_attr, RelAttr *right_attr);
+void join_condition_destroy(JoinCondition *join_condition);
 
 void condition_init(Condition *condition, CompOp comp, int left_is_attr, RelAttr *left_attr, Value *left_value,
     int right_is_attr, RelAttr *right_attr, Value *right_value);

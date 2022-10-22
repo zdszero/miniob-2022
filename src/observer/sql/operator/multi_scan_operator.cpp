@@ -2,6 +2,7 @@
 #include "sql/operator/table_scan_operator.h"
 
 RC NestedScanOperator::open() {
+  use_join_ = false;
   RC rc = RC::SUCCESS;
   for (Table *table : tables_) {
     add_child(new TableScanOperator(table));
@@ -21,7 +22,13 @@ RC NestedScanOperator::open() {
     }
     tuple_sets_.push_back(tuple_set);
   }
-  iter.Init(&tuple_sets_);
+  if (use_join_) {
+    for (const JoinUnit &join_unit : join_units_) {
+      // TODO: tables and units sequence
+    }
+  } else {
+    iter.Init(&tuple_sets_);
+  }
   return RC::SUCCESS;
 }
 
