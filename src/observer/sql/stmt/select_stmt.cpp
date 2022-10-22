@@ -93,7 +93,9 @@ RC SelectStmt::create(Db *db, Selects &select_sql, Stmt *&stmt)
   std::vector<JoinStmt> join_stmts;
 
   std::unordered_map<std::string, Table *> join_table_map;
-  join_table_map.insert({default_table->name(), default_table});
+  if (default_table != nullptr) {
+    join_table_map.insert({default_table->name(), default_table});
+  }
 
   for (size_t i = 0; i < select_sql.join_num; i++) {
     Join &join = select_sql.joins[i];
