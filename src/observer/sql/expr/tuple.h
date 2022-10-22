@@ -231,6 +231,8 @@ private:
 class CartesianTuple : public Tuple {
 public:
   CartesianTuple() = default;
+  CartesianTuple(Tuple *t): tuples_(std::vector<Tuple *>{t}) {}
+  CartesianTuple(const std::vector<Tuple *> &tuples): tuples_(tuples) {}
   virtual ~CartesianTuple() = default;
 
   void set_tuples(const std::vector<Tuple *> &tuples)

@@ -13,15 +13,22 @@
 typedef struct ParserContext {
   Query * ssql;
   size_t select_length;
-  size_t condition_length;
-	size_t join_condition_length;
   size_t from_length;
+	char id[MAX_NUM];
+
   size_t value_length;
   Value values[MAX_NUM];
+
+  size_t condition_length;
   Condition conditions[MAX_NUM];
-	JoinCondition join_conditions[MAX_NUM];
+
+	size_t join_condition_length;
+	Condition join_conditions[MAX_NUM];
+
+	size_t join_length;
+	Join joins[MAX_NUM];
+
   CompOp comp;
-	char id[MAX_NUM];
 } ParserContext;
 
 //获取子串
@@ -362,7 +369,7 @@ select:				/*  select 语句的语法解析树*/
 
 			selects_append_conditions(&CONTEXT->ssql->sstr.selection, CONTEXT->conditions, CONTEXT->condition_length);
 
-			selects_append_join_conditions(&CONTEXT->ssql->sstr.selection, CONTEXT->join_conditions, CONTEXT->join_condition_length);
+			select_append_joins(&CONTEXT->ssql->sstr.selection, CONTEXT->joins, CONTEXT->join_length);
 
 			CONTEXT->ssql->flag=SCF_SELECT;//"select";
 			// CONTEXT->ssql->sstr.selection.attr_num = CONTEXT->select_length;
@@ -370,6 +377,7 @@ select:				/*  select 语句的语法解析树*/
 			//临时变量清零
 			CONTEXT->condition_length=0;
 			CONTEXT->join_condition_length=0;
+			CONTEXT->join_length=0;
 			CONTEXT->from_length=0;
 			CONTEXT->select_length=0;
 			CONTEXT->value_length = 0;
@@ -425,15 +433,59 @@ inner_join_list:
 		;
 
 inner_join:
-		INNER JOIN ID ON ID DOT ID comOp ID DOT ID condition_list {
-			RelAttr left_attr, right_attr;
-			relation_attr_init(&left_attr, $5, $7);
-			relation_attr_init(&right_attr, $9, $11);
-			JoinCondition join_condition;
-			join_conditoin_init(&join_condition, $3, &left_attr, &right_attr);
-			CONTEXT->join_conditions[CONTEXT->join_condition_length++] = join_condition;
+		INNER JOIN ID ON join_condition join_condition_list {
+			Join join;
+			join_init(&join, $3, CONTEXT->join_conditions, CONTEXT->join_condition_length);
+			CONTEXT->joins[CONTEXT->join_length++] = join;
+			CONTEXT->join_condition_length = 0;
 		}
 		;
+
+join_condition_list:
+		/* empty */
+		| AND join_condition join_condition_list {
+
+		};
+
+join_condition:
+		ID DOT ID comOp ID DOT ID {
+			RelAttr left_attr;
+			relation_attr_init(&left_attr, $1, $3);
+			RelAttr right_attr;
+			relation_attr_init(&right_attr, $5, $7);
+
+			Condition condition;
+			condition_init(&condition, CONTEXT->comp, 1, &left_attr, NULL, 1, &right_attr, NULL);
+			CONTEXT->join_conditions[CONTEXT->join_condition_length++] = condition;
+		}
+		| value comOp ID DOT ID {
+			Value *left_value = &CONTEXT->values[CONTEXT->value_length - 1];
+			RelAttr right_attr;
+			relation_attr_init(&right_attr, $3, $5);
+
+			Condition condition;
+			condition_init(&condition, CONTEXT->comp, 0, NULL, left_value, 1, &right_attr, NULL);
+			CONTEXT->join_conditions[CONTEXT->join_condition_length++] = condition;
+		}
+		| ID DOT ID comOp value {
+			RelAttr left_attr;
+			relation_attr_init(&left_attr, $1, $3);
+			Value *right_value = &CONTEXT->values[CONTEXT->value_length - 1];
+
+			Condition condition;
+			condition_init(&condition, CONTEXT->comp, 1, &left_attr, NULL, 0, NULL, right_value);
+			CONTEXT->join_conditions[CONTEXT->join_condition_length++] = condition;
+		}
+		| value comOp value {
+			Value *left_value = &CONTEXT->values[CONTEXT->value_length - 2];
+			Value *right_value = &CONTEXT->values[CONTEXT->value_length - 1];
+
+			Condition condition;
+			condition_init(&condition, CONTEXT->comp, 0, NULL, left_value, 0, NULL, right_value);
+			CONTEXT->join_conditions[CONTEXT->join_condition_length++] = condition;
+		}
+		;
+
 
 where:
     /* empty */ 

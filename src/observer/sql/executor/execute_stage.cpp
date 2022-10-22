@@ -27,6 +27,7 @@ See the Mulan PSL v2 for more details. */
 #include "event/sql_event.h"
 #include "event/session_event.h"
 #include "sql/expr/tuple.h"
+#include "sql/operator/join_operator.h"
 #include "sql/operator/multi_scan_operator.h"
 #include "sql/operator/table_scan_operator.h"
 #include "sql/operator/index_scan_operator.h"
@@ -408,10 +409,10 @@ RC ExecuteStage::do_select(SQLStageEvent *sql_event)
   SessionEvent *session_event = sql_event->session_event();
   RC rc = RC::SUCCESS;
   Operator *scan_oper;
-  if (select_stmt->join_units().empty()) {
+  if (true) {
     scan_oper = new NestedScanOperator(select_stmt->tables());
   } else {
-    scan_oper = new HashJoinOperator(select_stmt->tables()[0], select_stmt->join_units());
+    scan_oper = new HashJoinOperator(select_stmt->tables()[0], select_stmt->join_stmts());
   }
 
   DEFER([&]() { delete scan_oper; });

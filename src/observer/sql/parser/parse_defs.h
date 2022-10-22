@@ -71,9 +71,9 @@ typedef struct _Condition {
 
 typedef struct _JoinConditon {
   char *join_table_name;
-  RelAttr left_attr;
-  RelAttr right_attr;
-} JoinCondition;
+  size_t condition_num;
+  Condition conditions[MAX_NUM];
+} Join;
 
 // struct of select
 typedef struct {
@@ -83,8 +83,8 @@ typedef struct {
   char *relations[MAX_NUM];       // relations in From clause
   size_t condition_num;           // Length of conditions in Where clause
   Condition conditions[MAX_NUM];  // conditions in Where clause
-  size_t join_condition_num;
-  JoinCondition join_conditions[MAX_NUM];
+  size_t join_num;
+  Join joins[MAX_NUM];
 } Selects;
 
 // struct of insert
@@ -210,8 +210,8 @@ void value_init_string(Value *value, const char *v);
 void value_init_date(Value *value, int32_t v);
 void value_destroy(Value *value);
 
-void join_conditoin_init(JoinCondition *join_condition, const char *join_table, RelAttr *left_attr, RelAttr *right_attr);
-void join_condition_destroy(JoinCondition *join_condition);
+void join_init(Join *join, const char *join_table, Condition conditions[], size_t condition_num);
+void join_destroy(Join *join);
 
 void condition_init(Condition *condition, CompOp comp, int left_is_attr, RelAttr *left_attr, Value *left_value,
     int right_is_attr, RelAttr *right_attr, Value *right_value);
@@ -224,6 +224,7 @@ void selects_init(Selects *selects, ...);
 void selects_append_attribute(Selects *selects, RelAttr *rel_attr);
 void selects_append_relation(Selects *selects, const char *relation_name);
 void selects_append_conditions(Selects *selects, Condition conditions[], size_t condition_num);
+void select_append_joins(Selects *selects, Join joins[], size_t join_num);
 void selects_destroy(Selects *selects);
 
 void inserts_init(Inserts *inserts, const char *relation_name, Value values[], size_t value_num);

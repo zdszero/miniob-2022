@@ -15,8 +15,7 @@ See the Mulan PSL v2 for more details. */
 #pragma once
 
 #include "sql/operator/operator.h"
-
-class FilterStmt;
+#include "sql/stmt/filter_stmt.h"
 
 /**
  * PredicateOperator 用于单个表中的记录过滤
@@ -36,6 +35,7 @@ public:
   RC close() override;
 
   Tuple * current_tuple() override;
+  static bool do_filter_unit(Tuple &tuple, const FilterUnit *filter_unit);
   //int tuple_cell_num() const override;
   //RC tuple_cell_spec_at(int index, TupleCellSpec &spec) const override;
 private:

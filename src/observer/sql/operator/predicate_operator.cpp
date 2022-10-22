@@ -15,7 +15,6 @@ See the Mulan PSL v2 for more details. */
 #include "common/log/log.h"
 #include "sql/operator/predicate_operator.h"
 #include "storage/record/record.h"
-#include "sql/stmt/filter_stmt.h"
 #include "storage/common/field.h"
 
 RC PredicateOperator::open()
@@ -32,7 +31,7 @@ RC PredicateOperator::next()
 {
   RC rc = RC::SUCCESS;
   Operator *oper = children_[0];
-  
+
   while (RC::SUCCESS == (rc = oper->next())) {
     Tuple *tuple = oper->current_tuple();
     if (nullptr == tuple) {
@@ -54,46 +53,38 @@ RC PredicateOperator::close()
   return RC::SUCCESS;
 }
 
-Tuple * PredicateOperator::current_tuple()
+Tuple *PredicateOperator::current_tuple()
 {
   return children_[0]->current_tuple();
 }
 
-bool PredicateOperator::do_predicate(Tuple &tuple)
+bool PredicateOperator::do_filter_unit(Tuple &tuple, const FilterUnit *filter_unit)
 {
-  if (filter_stmt_->impossible()) {
+  Expression *left_expr = filter_unit->left();
+  Expression *right_expr = filter_unit->right();
+  CompOp comp = filter_unit->comp();
+  TupleCell left_cell;
+  TupleCell right_cell;
+  left_expr->get_value(tuple, left_cell);
+  right_expr->get_value(tuple, right_cell);
+
+  bool filter_result = false;
+
+  if (comp == STR_LIKE || comp == STR_NOT_LIKE) {
+    filter_result = left_cell.wildcard_compare(right_cell, comp == STR_NOT_LIKE);
+    if (!filter_result) {
+      return false;
+    }
     return false;
   }
-  if (filter_stmt_ == nullptr || filter_stmt_->filter_units().empty()) {
-    return true;
-  }
 
-  for (const FilterUnit *filter_unit : filter_stmt_->filter_units()) {
-    Expression *left_expr = filter_unit->left();
-    Expression *right_expr = filter_unit->right();
-    CompOp comp = filter_unit->comp();
-    TupleCell left_cell;
-    TupleCell right_cell;
-    left_expr->get_value(tuple, left_cell);
-    right_expr->get_value(tuple, right_cell);
-
-    bool filter_result = false;
-
-    if (comp == STR_LIKE || comp == STR_NOT_LIKE) {
-       filter_result = left_cell.wildcard_compare(right_cell, comp == STR_NOT_LIKE);
-       if (!filter_result) {
-         return false;
-       }
-       continue;
-    }
-
-    const int compare = left_cell.compare(right_cell);
-    switch (comp) {
+  const int compare = left_cell.compare(right_cell);
+  switch (comp) {
     case EQUAL_TO: {
-      filter_result = (0 == compare); 
+      filter_result = (0 == compare);
     } break;
     case LESS_EQUAL: {
-      filter_result = (compare <= 0); 
+      filter_result = (compare <= 0);
     } break;
     case NOT_EQUAL: {
       filter_result = (compare != 0);
@@ -110,8 +101,24 @@ bool PredicateOperator::do_predicate(Tuple &tuple)
     default: {
       LOG_WARN("invalid compare type: %d", comp);
     } break;
-    }
-    if (!filter_result) {
+  }
+  if (!filter_result) {
+    return false;
+  }
+  return true;
+}
+
+bool PredicateOperator::do_predicate(Tuple &tuple)
+{
+  if (filter_stmt_->impossible()) {
+    return false;
+  }
+  if (filter_stmt_ == nullptr || filter_stmt_->filter_units().empty()) {
+    return true;
+  }
+
+  for (const FilterUnit *filter_unit : filter_stmt_->filter_units()) {
+    if (do_filter_unit(tuple, filter_unit) == false) {
       return false;
     }
   }
