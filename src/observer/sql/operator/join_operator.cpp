@@ -40,7 +40,12 @@ RC HashJoinOperator::open()
         FieldExpr *left_expr = static_cast<FieldExpr *>(unit->left());
         FieldExpr *right_expr = static_cast<FieldExpr *>(unit->right());
         assert(strcmp(right_expr->table_name(), stmt.join_table->name()) == 0);
-        ht_.Combine(left_expr, right_expr, tuple_set);
+        if (unit->comp() == CompOp::EQUAL_TO) {
+          ht_.Combine(left_expr, right_expr, tuple_set);
+        } else {
+          ht_.Product(right_tbl_name, tuple_set);
+          ht_.Filter(unit);
+        }
       } else if (left_type == ExprType::FIELD || right_type == ExprType::FIELD) {
         FieldExpr *field_expr;
         if (left_type == ExprType::FIELD) {
