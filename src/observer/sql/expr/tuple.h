@@ -240,6 +240,11 @@ public:
     tuples_ = tuples;
   }
 
+  void add_tuple(Tuple *t)
+  {
+    tuples_.push_back(t);
+  }
+
   int cell_num() const override
   {
     int cell_num = 0;

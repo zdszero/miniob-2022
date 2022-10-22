@@ -24,7 +24,17 @@ RC HashJoinOperator::open()
       ExprType right_type = unit->right()->type();
       assert(left_type != ExprType::NONE && right_type != ExprType::NONE);
       if (left_type == ExprType::FIELD && right_type == ExprType::FIELD) {
-        if (!ht_.HasTable(static_cast<FieldExpr *>(unit->left())->table_name())) {
+        const char *left_tbl_name = static_cast<FieldExpr *>(unit->left())->table_name();
+        const char *right_tbl_name = static_cast<FieldExpr *>(unit->right())->table_name();
+        if (ht_.HasTable(left_tbl_name) && ht_.HasTable(right_tbl_name)) {
+          ht_.Filter(unit);
+          continue;
+        }
+        if (!ht_.HasTable(left_tbl_name) && !ht_.HasTable(right_tbl_name)) {
+          LOG_ERROR("tables %s and %s not in previous join tables\n", left_tbl_name, right_tbl_name);
+          return RC::INTERNAL;
+        }
+        if (!ht_.HasTable(left_tbl_name)) {
           unit->swap_left_right();
         }
         FieldExpr *left_expr = static_cast<FieldExpr *>(unit->left());
@@ -40,7 +50,7 @@ RC HashJoinOperator::open()
         }
         std::string table_name = field_expr->table_name();
         if (ht_.HasTable(table_name)) {
-          ht_.Filter(table_name, unit);
+          ht_.Filter(unit);
         } else {
           std::vector<TupleSet::iterator> remove_iters;
           for (auto itr = tuple_set.begin(); itr != tuple_set.end(); itr++) {

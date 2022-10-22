@@ -14,6 +14,7 @@ See the Mulan PSL v2 for more details. */
 
 #pragma once
 
+#include "sql/expr/tuple.h"
 #include "sql/operator/predicate_operator.h"
 #include "sql/parser/parse.h"
 #include "sql/operator/operator.h"
@@ -36,7 +37,7 @@ public:
 
 class HashJoinOperator : public Operator {
   using TupleSet = std::vector<Tuple *>;
-  using TempTable = std::vector<TupleSet>;
+  using TempTable = std::vector<CartesianTuple>;
   using TempTableIter = TempTable::iterator;
   using TempTableIters = std::vector<TempTableIter>;
   
@@ -45,7 +46,7 @@ class HashJoinOperator : public Operator {
     void Init(const std::string &table_name, TupleSet &tuple_set)
     {
       for (Tuple *t : tuple_set) {
-        temp_table_.push_back(TupleSet{t});
+        temp_table_.push_back({t});
       }
       name_map_[table_name] = last_index_++;
       printf("init table size: %ld\n", temp_table_.size());
@@ -56,13 +57,11 @@ class HashJoinOperator : public Operator {
       ht_.clear();
       std::string left_table_name(left_expr->table_name());
       assert(name_map_.count(left_table_name));
-      size_t name_idx = name_map_[left_table_name];
       printf("combine table %s with %s\n", left_table_name.c_str(), right_expr->table_name());
       // build hash table
       for (auto it = temp_table_.begin(); it != temp_table_.end(); it++) {
-        Tuple *t = it->at(name_idx);
         TupleCell cell;
-        RC rc = left_expr->get_value(*t, cell);
+        RC rc = left_expr->get_value(*it, cell);
         assert(rc == RC::SUCCESS);
         if (!ht_.count(cell)) {
           ht_.insert({cell, TempTableIters{it}});
@@ -80,9 +79,9 @@ class HashJoinOperator : public Operator {
         } else {
           TempTableIters &iters = ht_[cell];
           for (const TempTableIter &iter : iters) {
-            TupleSet new_set = *iter;  // copy
-            new_set.push_back(t);
-            temp_table.push_back(new_set);
+            CartesianTuple new_cartesian_tuple = *iter;
+            new_cartesian_tuple.add_tuple(t);
+            temp_table.push_back(new_cartesian_tuple);
           }
         }
       }
@@ -95,25 +94,22 @@ class HashJoinOperator : public Operator {
     void Product(const std::string &join_table, TupleSet &tuple_set) {
       printf("product %ldx%ld with %s\n", temp_table_.size(), tuple_set.size(), join_table.c_str());
       TempTable temp_table;
-      for (const TupleSet &origin : temp_table_) {
+      for (const CartesianTuple &origin : temp_table_) {
         for (Tuple *t : tuple_set) {
-          TupleSet new_set = origin;
-          new_set.push_back(t);
-          temp_table.push_back(new_set);
+          CartesianTuple new_cartesian_tuple = origin;
+          new_cartesian_tuple.add_tuple(t);
+          temp_table.push_back(new_cartesian_tuple);
         }
       }
       printf("temp tbl size: %ld -> %ld\n", temp_table_.size(), temp_table.size());
       name_map_[join_table] = last_index_++;
       temp_table_.swap(temp_table);
     }
-    void Filter(const std::string &filter_table, const FilterUnit *filter_unit) {
-      printf("filter table %s\n", filter_table.c_str());
-      size_t tbl_idx = name_map_[filter_table];
+    void Filter(const FilterUnit *filter_unit) {
+      printf("filter\n");
       TempTableIters remove_iters;
       for (auto it = temp_table_.begin(); it != temp_table_.end(); it++) {
-        const TupleSet &tuple_set = *it;
-        Tuple *t = tuple_set[tbl_idx];
-        if (!PredicateOperator::do_filter_unit(*t, filter_unit)) {
+        if (!PredicateOperator::do_filter_unit(*it, filter_unit)) {
           remove_iters.push_back(it);
         }
       }
