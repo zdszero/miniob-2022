@@ -57,15 +57,13 @@ RC HashJoinOperator::open()
         if (ht_.HasTable(table_name)) {
           ht_.Filter(unit);
         } else {
-          std::vector<TupleSet::iterator> remove_iters;
-          for (auto itr = tuple_set.begin(); itr != tuple_set.end(); itr++) {
+          for (auto itr = tuple_set.begin(); itr != tuple_set.end();) {
             Tuple *t = *itr;
             if (!PredicateOperator::do_filter_unit(*t, unit)) {
-              remove_iters.push_back(itr);
+              itr = tuple_set.erase(itr);
+            } else {
+              itr++;
             }
-          }
-          for (TupleSet::iterator itr: remove_iters) {
-            tuple_set.erase(itr);
           }
           ht_.Product(table_name, tuple_set);
         }

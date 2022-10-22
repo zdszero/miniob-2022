@@ -107,14 +107,12 @@ class HashJoinOperator : public Operator {
     }
     void Filter(const FilterUnit *filter_unit) {
       printf("filter\n");
-      TempTableIters remove_iters;
-      for (auto it = temp_table_.begin(); it != temp_table_.end(); it++) {
+      for (auto it = temp_table_.begin(); it != temp_table_.end();) {
         if (!PredicateOperator::do_filter_unit(*it, filter_unit)) {
-          remove_iters.push_back(it);
+          it = temp_table_.erase(it);
+        } else {
+          ++it;
         }
-      }
-      for (TempTableIter it : remove_iters) {
-        temp_table_.erase(it);
       }
       printf("temp tbl size: %ld\n", temp_table_.size());
     }
