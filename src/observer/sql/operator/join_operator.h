@@ -87,7 +87,6 @@ class HashJoinOperator : public Operator {
       }
       printf("combine finished\n");
       name_map_[right_expr->table_name()] = last_index_++;
-      assert(temp_table.size() <= temp_table_.size());
       printf("temp tbl size: %ld -> %ld\n", temp_table_.size(), temp_table.size());
       temp_table_.swap(temp_table);
     }
