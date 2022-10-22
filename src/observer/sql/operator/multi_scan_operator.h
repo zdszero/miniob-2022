@@ -9,6 +9,8 @@
 #include <unordered_map>
 #include <vector>
 
+using TupleSet = std::vector<Tuple *>;
+
 struct TupleCellHasher {
 public:
   hash_t operator()(const TupleCell &cell) const
@@ -79,16 +81,42 @@ class NestedScanOperator : public Operator {
     std::vector<size_t> indexes_;
   };
 
+public:
+  NestedScanOperator(const std::vector<Table *> &tables) : tables_(tables)
+  {}
+  virtual ~NestedScanOperator()
+  {
+    for (Operator *oper : children_) {
+      delete oper;
+    }
+  }
+
+  RC open() override;
+  RC next() override;
+  RC close() override;
+  Tuple *current_tuple() override;
+
+private:
+  std::vector<Table *> tables_;
+  std::vector<TupleSet> tuple_sets_;
+  CartesianTuple current_tuple_;
+  TupleSetsIterator iter;
+};
+
+class HashJoinOperator : public Operator {
+  using TempTable = std::vector<TupleSet>;
+  using TempTableIter = TempTable::iterator;
+  using TempTableIters = std::vector<TempTableIter>;
+  
   class SimpleHashTable {
-    using TempTable = std::vector<TupleSet>;
-    using TempTableIter = TempTable::iterator;
-    using TempTableIters = std::vector<TempTableIter>;
   public:
-    void Init(const std::string &table_name, TupleSet &tuple_set) {
+    void Init(const std::string &table_name, TupleSet &tuple_set)
+    {
       for (Tuple *t : tuple_set) {
         temp_table_.push_back(TupleSet{t});
       }
       name_map_[table_name] = 0;
+      printf("init table size: %ld\n", temp_table_.size());
     }
     void Combine(FieldExpr *left_expr, FieldExpr *right_expr, const TupleSet &right_set)
     {
@@ -97,6 +125,7 @@ class NestedScanOperator : public Operator {
       std::string left_table_name(left_expr->table_name());
       assert(name_map_.count(left_table_name));
       size_t name_idx = name_map_[left_table_name];
+      printf("combine table %s with %s\n", left_table_name.c_str(), right_expr->table_name());
       // build hash table
       for (auto it = temp_table_.begin(); it != temp_table_.end(); it++) {
         Tuple *t = it->at(name_idx);
@@ -119,17 +148,20 @@ class NestedScanOperator : public Operator {
         } else {
           TempTableIters &iters = ht_[cell];
           for (const TempTableIter &iter : iters) {
-            TupleSet new_set = *iter; // copy
+            TupleSet new_set = *iter;  // copy
             new_set.push_back(t);
             temp_table.push_back(new_set);
           }
         }
       }
-      name_map_[right_expr->table_name()] = name_map_.size()+1;
+      printf("combine finished\n");
+      name_map_[right_expr->table_name()] = name_map_.size() + 1;
       assert(temp_table.size() <= temp_table.size());
       printf("temp tbl size: %ld -> %ld\n", temp_table_.size(), temp_table.size());
       temp_table_.swap(temp_table);
     }
+
+    const TempTable &temp_table() { return temp_table_; }
 
   private:
     std::unordered_map<TupleCell, TempTableIters, TupleCellHasher> ht_;
@@ -138,11 +170,9 @@ class NestedScanOperator : public Operator {
   };
 
 public:
-  NestedScanOperator(const std::vector<Table *> &tables, const std::vector<JoinUnit> &join_units)
-      : tables_(tables), join_units_(join_units), use_join_(join_units.size() > 0)
+  HashJoinOperator(Table *table, const std::vector<JoinUnit> &join_units) : table_(table), join_units_(join_units)
   {}
-  virtual ~NestedScanOperator()
-  {
+  virtual ~HashJoinOperator() {
     for (Operator *oper : children_) {
       delete oper;
     }
@@ -154,10 +184,11 @@ public:
   Tuple *current_tuple() override;
 
 private:
-  std::vector<Table *> tables_;
+  Table *table_;
   std::vector<JoinUnit> join_units_;
-  std::vector<TupleSet> tuple_sets_;
+  SimpleHashTable ht_;
   CartesianTuple current_tuple_;
-  TupleSetsIterator iter;
-  bool use_join_;
+  size_t index_{0};
+
+  RC fetch_tuple_sets(Table *tbl, TupleSet &tuple_set);
 };

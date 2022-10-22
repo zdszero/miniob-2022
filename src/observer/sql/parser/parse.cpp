@@ -71,14 +71,16 @@ void value_destroy(Value *value)
   value->data = nullptr;
 }
 
-void join_conditoin_init(JoinCondition *join_condition, RelAttr *left_attr, RelAttr *right_attr)
+void join_conditoin_init(JoinCondition *join_condition, const char *join_table, RelAttr *left_attr, RelAttr *right_attr)
 {
+  join_condition->join_table_name = strdup(join_table);
   join_condition->left_attr = *left_attr;
   join_condition->right_attr = *right_attr;
 }
 
 void join_condition_destroy(JoinCondition *join_condition)
 {
+  free(join_condition->join_table_name);
   relation_attr_destroy(&join_condition->left_attr);
   relation_attr_destroy(&join_condition->right_attr);
 }

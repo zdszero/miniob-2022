@@ -70,7 +70,7 @@ typedef struct _Condition {
 } Condition;
 
 typedef struct _JoinConditon {
-  const char *on_table_name;
+  char *join_table_name;
   RelAttr left_attr;
   RelAttr right_attr;
 } JoinCondition;
@@ -210,7 +210,7 @@ void value_init_string(Value *value, const char *v);
 void value_init_date(Value *value, int32_t v);
 void value_destroy(Value *value);
 
-void join_conditoin_init(JoinCondition *join_condition, RelAttr *left_attr, RelAttr *right_attr);
+void join_conditoin_init(JoinCondition *join_condition, const char *join_table, RelAttr *left_attr, RelAttr *right_attr);
 void join_condition_destroy(JoinCondition *join_condition);
 
 void condition_init(Condition *condition, CompOp comp, int left_is_attr, RelAttr *left_attr, Value *left_value,

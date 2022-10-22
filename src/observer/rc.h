@@ -383,6 +383,9 @@ enum RC {
   // filter
   FILTER_ALWAYS,
   FILTER_IMPOSSIBLE,
+
+  // join
+  JOIN_TABLE_MISMATCH,
 };
 
 extern const char *strrc(RC rc);

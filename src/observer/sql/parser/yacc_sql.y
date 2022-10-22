@@ -425,18 +425,12 @@ inner_join_list:
 		;
 
 inner_join:
-		INNER JOIN ID ON join_condition condition_list {
-			selects_append_relation(&CONTEXT->ssql->sstr.selection, $3);
-		}
-		;
-
-join_condition:
-		ID DOT ID comOp ID DOT ID {
+		INNER JOIN ID ON ID DOT ID comOp ID DOT ID condition_list {
 			RelAttr left_attr, right_attr;
-			relation_attr_init(&left_attr, $1, $3);
-			relation_attr_init(&right_attr, $5, $7);
+			relation_attr_init(&left_attr, $5, $7);
+			relation_attr_init(&right_attr, $9, $11);
 			JoinCondition join_condition;
-			join_conditoin_init(&join_condition, &left_attr, &right_attr);
+			join_conditoin_init(&join_condition, $3, &left_attr, &right_attr);
 			CONTEXT->join_conditions[CONTEXT->join_condition_length++] = join_condition;
 		}
 		;

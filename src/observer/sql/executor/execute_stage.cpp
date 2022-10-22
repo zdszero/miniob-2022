@@ -407,14 +407,21 @@ RC ExecuteStage::do_select(SQLStageEvent *sql_event)
   SelectStmt *select_stmt = (SelectStmt *)(sql_event->stmt());
   SessionEvent *session_event = sql_event->session_event();
   RC rc = RC::SUCCESS;
-  NestedScanOperator nested_scan_oper(select_stmt->tables(), select_stmt->join_units());
+  Operator *scan_oper;
+  if (select_stmt->join_units().empty()) {
+    scan_oper = new NestedScanOperator(select_stmt->tables());
+  } else {
+    scan_oper = new HashJoinOperator(select_stmt->tables()[0], select_stmt->join_units());
+  }
+
+  DEFER([&]() { delete scan_oper; });
   // Operator *scan_oper = try_to_create_index_scan_operator(select_stmt->filter_stmt());
   // if (nullptr == scan_oper) {
   //   scan_oper = new TableScanOperator(table);
   // }
 
   PredicateOperator pred_oper(select_stmt->filter_stmt());
-  pred_oper.add_child(&nested_scan_oper);
+  pred_oper.add_child(scan_oper);
   ProjectOperator project_oper;
   project_oper.add_child(&pred_oper);
   for (const Field &field : select_stmt->query_fields()) {
@@ -428,7 +435,6 @@ RC ExecuteStage::do_select(SQLStageEvent *sql_event)
 
   std::stringstream ss;
   print_tuple_header(ss, project_oper);
-  // nested_scan_oper.open();
   while ((rc = project_oper.next()) == RC::SUCCESS) {
     // get current record
     // write to response
@@ -445,9 +451,9 @@ RC ExecuteStage::do_select(SQLStageEvent *sql_event)
 
   if (rc != RC::RECORD_EOF) {
     LOG_WARN("something wrong while iterate operator. rc=%s", strrc(rc));
-    nested_scan_oper.close();
+    project_oper.close();
   } else {
-    rc = nested_scan_oper.close();
+    rc = project_oper.close();
   }
 
   session_event->set_response(ss.str());

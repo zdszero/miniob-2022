@@ -28,6 +28,7 @@ class Table;
 
 struct JoinUnit
 {
+  Table *join_table;
   FieldExpr left;
   FieldExpr right;
 };
