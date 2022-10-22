@@ -2,6 +2,7 @@
 #include "sql/operator/table_scan_operator.h"
 #include "sql/stmt/filter_stmt.h"
 #include <cassert>
+#include <cstring>
 
 RC HashJoinOperator::open()
 {
@@ -23,12 +24,21 @@ RC HashJoinOperator::open()
       ExprType right_type = unit->right()->type();
       assert(left_type != ExprType::NONE && right_type != ExprType::NONE);
       if (left_type == ExprType::FIELD && right_type == ExprType::FIELD) {
+        if (!ht_.HasTable(static_cast<FieldExpr *>(unit->left())->table_name())) {
+          unit->swap_left_right();
+        }
         FieldExpr *left_expr = static_cast<FieldExpr *>(unit->left());
         FieldExpr *right_expr = static_cast<FieldExpr *>(unit->right());
+        assert(strcmp(right_expr->table_name(), stmt.join_table->name()) == 0);
         ht_.Combine(left_expr, right_expr, tuple_set);
-      } else if (left_type == ExprType::FIELD && right_type == ExprType::VALUE) {
-        FieldExpr *left_expr = static_cast<FieldExpr *>(unit->left());
-        std::string table_name = left_expr->table_name();
+      } else if (left_type == ExprType::FIELD || right_type == ExprType::FIELD) {
+        FieldExpr *field_expr;
+        if (left_type == ExprType::FIELD) {
+          field_expr = static_cast<FieldExpr *>(unit->left());
+        } else {
+          field_expr = static_cast<FieldExpr *>(unit->right());
+        }
+        std::string table_name = field_expr->table_name();
         if (ht_.HasTable(table_name)) {
           ht_.Filter(table_name, unit);
         } else {
@@ -44,12 +54,12 @@ RC HashJoinOperator::open()
           }
           ht_.Product(table_name, tuple_set);
         }
-      } else if (left_type == ExprType::VALUE && right_type == ExprType::FIELD) {
-        assert(false);
       } else {
         RowTuple tuple;  // unused
         if (!PredicateOperator::do_filter_unit(tuple, unit)) {
           ht_.Clear();
+        } else {
+          ht_.Product(stmt.join_table->name(), tuple_set);
         }
       }
     }

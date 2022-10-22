@@ -47,7 +47,7 @@ class HashJoinOperator : public Operator {
       for (Tuple *t : tuple_set) {
         temp_table_.push_back(TupleSet{t});
       }
-      name_map_[table_name] = 0;
+      name_map_[table_name] = last_index_++;
       printf("init table size: %ld\n", temp_table_.size());
     }
     void Combine(FieldExpr *left_expr, FieldExpr *right_expr, const TupleSet &right_set)
@@ -87,25 +87,27 @@ class HashJoinOperator : public Operator {
         }
       }
       printf("combine finished\n");
-      name_map_[right_expr->table_name()] = name_map_.size() + 1;
-      assert(temp_table.size() <= temp_table.size());
+      name_map_[right_expr->table_name()] = last_index_++;
+      assert(temp_table.size() <= temp_table_.size());
       printf("temp tbl size: %ld -> %ld\n", temp_table_.size(), temp_table.size());
       temp_table_.swap(temp_table);
     }
     void Product(const std::string &join_table, TupleSet &tuple_set) {
+      printf("product %ldx%ld with %s\n", temp_table_.size(), tuple_set.size(), join_table.c_str());
       TempTable temp_table;
-      for (const TupleSet &tuple_set : temp_table_) {
+      for (const TupleSet &origin : temp_table_) {
         for (Tuple *t : tuple_set) {
-          TupleSet new_set = tuple_set;
+          TupleSet new_set = origin;
           new_set.push_back(t);
           temp_table.push_back(new_set);
         }
       }
       printf("temp tbl size: %ld -> %ld\n", temp_table_.size(), temp_table.size());
-      name_map_[join_table] = name_map_.size()+1;
+      name_map_[join_table] = last_index_++;
       temp_table_.swap(temp_table);
     }
     void Filter(const std::string &filter_table, const FilterUnit *filter_unit) {
+      printf("filter table %s\n", filter_table.c_str());
       size_t tbl_idx = name_map_[filter_table];
       TempTableIters remove_iters;
       for (auto it = temp_table_.begin(); it != temp_table_.end(); it++) {
@@ -118,8 +120,12 @@ class HashJoinOperator : public Operator {
       for (TempTableIter it : remove_iters) {
         temp_table_.erase(it);
       }
+      printf("temp tbl size: %ld\n", temp_table_.size());
     }
-    void Clear() { ht_.clear(); }
+    void Clear() {
+      temp_table_.clear();
+      printf("clear, temp tbl size: %ld\n", temp_table_.size());
+    }
     bool HasTable(const std::string &table_name) { return name_map_.count(table_name); }
 
     const TempTable &temp_table() { return temp_table_; }
@@ -128,6 +134,7 @@ class HashJoinOperator : public Operator {
     std::unordered_map<TupleCell, TempTableIters, TupleCellHasher> ht_;
     std::unordered_map<std::string, size_t> name_map_;
     TempTable temp_table_;
+    size_t last_index_{0};
   };
 
 public:

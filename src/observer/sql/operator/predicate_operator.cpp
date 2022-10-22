@@ -71,11 +71,7 @@ bool PredicateOperator::do_filter_unit(Tuple &tuple, const FilterUnit *filter_un
   bool filter_result = false;
 
   if (comp == STR_LIKE || comp == STR_NOT_LIKE) {
-    filter_result = left_cell.wildcard_compare(right_cell, comp == STR_NOT_LIKE);
-    if (!filter_result) {
-      return false;
-    }
-    return false;
+    return left_cell.wildcard_compare(right_cell, comp == STR_NOT_LIKE);
   }
 
   const int compare = left_cell.compare(right_cell);
@@ -102,10 +98,7 @@ bool PredicateOperator::do_filter_unit(Tuple &tuple, const FilterUnit *filter_un
       LOG_WARN("invalid compare type: %d", comp);
     } break;
   }
-  if (!filter_result) {
-    return false;
-  }
-  return true;
+  return filter_result;
 }
 
 bool PredicateOperator::do_predicate(Tuple &tuple)

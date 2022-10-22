@@ -16,6 +16,7 @@ See the Mulan PSL v2 for more details. */
 
 #include <vector>
 #include <unordered_map>
+#include "common/log/log.h"
 #include "rc.h"
 #include "sql/parser/parse_defs.h"
 #include "sql/stmt/stmt.h"
@@ -64,6 +65,24 @@ public:
   Expression *right() const
   {
     return right_;
+  }
+  void swap_left_right()
+  {
+    Expression *tmp = left_;
+    left_ = right_;
+    right_ = tmp;
+    switch (comp_) {
+      case EQUAL_TO:    { comp_ = EQUAL_TO; }    break;
+      case LESS_EQUAL:  { comp_ = GREAT_THAN; }  break;
+      case NOT_EQUAL:   { comp_ = NOT_EQUAL; }   break;
+      case LESS_THAN:   { comp_ = GREAT_EQUAL; } break;
+      case GREAT_EQUAL: { comp_ = LESS_THAN; }   break;
+      case GREAT_THAN:  { comp_ = LESS_EQUAL; }  break;
+      default: {
+				LOG_ERROR("cannot reverse comp type\n");
+				break;
+      }
+    }
   }
 
 private:

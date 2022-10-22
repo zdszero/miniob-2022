@@ -409,7 +409,7 @@ RC ExecuteStage::do_select(SQLStageEvent *sql_event)
   SessionEvent *session_event = sql_event->session_event();
   RC rc = RC::SUCCESS;
   Operator *scan_oper;
-  if (true) {
+  if (select_stmt->join_stmts().empty()) {
     scan_oper = new NestedScanOperator(select_stmt->tables());
   } else {
     scan_oper = new HashJoinOperator(select_stmt->tables()[0], select_stmt->join_stmts());
