@@ -105,11 +105,16 @@ typedef struct {
   Aggregate aggrs[MAX_NUM];
 } Selects;
 
+typedef struct {
+  size_t value_num;       // Length of values
+  Value values[MAX_NUM];  // values to insert
+} InsertPair;
+
 // struct of insert
 typedef struct {
   char *relation_name;    // Relation to insert into
-  size_t value_num;       // Length of values
-  Value values[MAX_NUM];  // values to insert
+  size_t pair_num;
+  InsertPair pairs[MAX_NUM];
 } Inserts;
 
 // struct of delete
@@ -249,7 +254,8 @@ void selects_append_conditions(Selects *selects, Condition conditions[], size_t 
 void select_append_joins(Selects *selects, Join joins[], size_t join_num);
 void selects_destroy(Selects *selects);
 
-void inserts_init(Inserts *inserts, const char *relation_name, Value values[], size_t value_num);
+void insert_append_values(Inserts *inserts, Value values[], size_t value_num);
+void inserts_init(Inserts *inserts, const char *relation_name);
 void inserts_destroy(Inserts *inserts);
 
 void deletes_init_relation(Deletes *deletes, const char *relation_name);
