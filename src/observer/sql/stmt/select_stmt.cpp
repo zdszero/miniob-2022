@@ -35,6 +35,11 @@ void print_expr(Expression *expr)
   }
 }
 
+inline bool is_star(const char *name)
+{
+  return std::strcmp("*", name) == 0;
+}
+
 SelectStmt::~SelectStmt()
 {
   if (nullptr != filter_stmt_) {
@@ -52,90 +57,7 @@ static void wildcard_fields(Table *table, std::vector<Field> &field_metas)
   }
 }
 
-RC SelectStmt::create(Db *db, Selects &select_sql, Stmt *&stmt)
-{
-  if (nullptr == db) {
-    LOG_WARN("invalid argument. db is null");
-    return RC::INVALID_ARGUMENT;
-  }
-  printf("------------------\n");
-
-  if (select_sql.aggr_num > 0 && select_sql.attr_num > 0) {
-    LOG_ERROR("cannot select aggregation with attribute together\n");
-    return RC::SQL_SYNTAX;
-  }
-
-  // collect tables in `from` statement
-  std::vector<Table *> tables;
-  std::unordered_map<std::string, Table *> table_map;
-  RC rc = collect_tables(db, select_sql, tables, table_map);
-  if (rc != RC::SUCCESS) {
-    return rc;
-  }
-
-  // setting default table
-  Table *default_table = nullptr;
-  if (tables.size() == 1) {
-    default_table = tables[0];
-  }
-
-  // create join stmts
-  if (select_sql.join_num > 0 && tables.size() > 1) {
-    LOG_ERROR("join with more than one select table is not implemented yet");
-    return RC::UNIMPLENMENT;
-  }
-
-  std::vector<JoinStmt> join_stmts;
-  rc = collect_join_stmts(db, select_sql, default_table, join_stmts);
-  if (rc != RC::SUCCESS) {
-    return rc;
-  }
-
-  // add join tables into tables for projection
-  for (JoinStmt &join : join_stmts) {
-    tables.push_back(join.join_table);
-    table_map.insert({join.join_table->name(), join.join_table});
-  }
-
-  // collect query fields in `select` statement
-  std::vector<Field> query_fields;
-  rc = collect_query_fields(db, select_sql, tables, table_map, query_fields);
-  if (rc != RC::SUCCESS) {
-    return rc;
-  }
-
-  // create filter statement in `where` statement
-  FilterStmt *filter_stmt = nullptr;
-  rc = FilterStmt::create(db, default_table, &table_map, select_sql.conditions, select_sql.condition_num, filter_stmt);
-  if (rc != RC::SUCCESS) {
-    LOG_WARN("cannot construct filter stmt");
-    return rc;
-  }
-
-  for (Table *t : tables) {
-    printf("table name: %s\n", t->name());
-  }
-  for (const JoinStmt &join : join_stmts) {
-    printf("join on table: %s\n", join.join_table->name());
-    for (FilterUnit *unit : join.filter_stmt->filter_units()) {
-      printf("comp: %d\n", unit->comp());
-      print_expr(unit->left());
-      print_expr(unit->right());
-    }
-  }
-
-  // everything alright
-  SelectStmt *select_stmt = new SelectStmt();
-  select_stmt->tables_.swap(tables);
-  select_stmt->query_fields_.swap(query_fields);
-  select_stmt->join_stmts_.swap(join_stmts);
-  select_stmt->filter_stmt_ = filter_stmt;
-  stmt = select_stmt;
-  return RC::SUCCESS;
-}
-
-RC SelectStmt::collect_tables(
-    Db *db, Selects &select_sql, std::vector<Table *> &tables, std::unordered_map<std::string, Table *> &table_map)
+static RC collect_tables(Db *db, Selects &select_sql, Tables &tables, TableMap &table_map)
 {
   for (int i = select_sql.relation_num - 1; i >= 0; i--) {
     const char *table_name = select_sql.relations[i];
@@ -156,9 +78,9 @@ RC SelectStmt::collect_tables(
   return RC::SUCCESS;
 }
 
-RC SelectStmt::collect_join_stmts(Db *db, Selects &select_sql, Table *default_table, std::vector<JoinStmt> &join_stmts)
+static RC collect_join_stmts(Db *db, Selects &select_sql, Table *default_table, std::vector<JoinStmt> &join_stmts)
 {
-  std::unordered_map<std::string, Table *> join_table_map;
+  TableMap join_table_map;
   if (default_table != nullptr) {
     join_table_map.insert({default_table->name(), default_table});
   }
@@ -187,8 +109,8 @@ RC SelectStmt::collect_join_stmts(Db *db, Selects &select_sql, Table *default_ta
   return RC::SUCCESS;
 }
 
-RC SelectStmt::collect_query_fields(Db *db, Selects &select_sql, const std::vector<Table *> &tables,
-    const std::unordered_map<std::string, Table *> &table_map, std::vector<Field> &query_fields)
+static RC collect_query_fields(
+    Db *db, Selects &select_sql, const Tables &tables, const TableMap &table_map, std::vector<Field> &query_fields)
 {
   for (int i = select_sql.attr_num - 1; i >= 0; i--) {
     const RelAttr &relation_attr = select_sql.attributes[i];
@@ -254,5 +176,143 @@ RC SelectStmt::collect_query_fields(Db *db, Selects &select_sql, const std::vect
       query_fields.push_back(Field(table, field_meta));
     }
   }
+  return RC::SUCCESS;
+}
+
+static RC collect_aggr_fields(
+    Db *db, Selects &select_sql, const Tables &tables, const TableMap &table_map, std::vector<AggrField> &aggr_fields)
+{
+  if (select_sql.aggr_num > 0 && select_sql.attr_num > 0) {
+    LOG_WARN("cannot select aggregation with attribute together\n");
+    return RC::SQL_SYNTAX;
+  }
+  for (size_t i = 0; i < select_sql.aggr_num; i++) {
+    Aggregate &aggr = select_sql.aggrs[i];
+    if (aggr.is_attr) {
+      const char *table_name = aggr.attr.relation_name;
+      const char *field_name = aggr.attr.attribute_name;
+      if (is_star(field_name) && aggr.aggr_type != AggrType::COUNTS) {
+        LOG_WARN("aggregate * with invalid aggregate function\n");
+        return RC::SQL_SYNTAX;
+      }
+      Table *table = nullptr;
+      const FieldMeta *field_meta = nullptr;
+      if (!common::is_blank(table_name)) {
+        auto iter = table_map.find(table_name);
+        if (iter == table_map.end()) {
+          LOG_WARN("no such table in from list: %s", table_name);
+          return RC::SCHEMA_FIELD_MISSING;
+        }
+        table = iter->second;
+      } else {
+        if (tables.size() != 1) {
+          LOG_WARN("invalid. I do not know the attr's table. attr=%s", table_name);
+          return RC::SCHEMA_FIELD_MISSING;
+        }
+        table = tables[0];
+      }
+      if (!is_star(field_name)) {
+        field_meta = table->table_meta().field(field_name);
+        if (nullptr == field_meta) {
+          LOG_WARN("no such field. field=%s.%s.%s", db->name(), table->name(), field_name);
+          return RC::SCHEMA_FIELD_MISSING;
+        }
+      }
+      aggr_fields.push_back(AggrField(aggr.aggr_type, table, field_meta));
+    } else {
+      LOG_ERROR("aggregate on value is not implemented yet\n");
+      return RC::UNIMPLENMENT;
+    }
+  }
+  return RC::SUCCESS;
+}
+
+RC SelectStmt::create(Db *db, Selects &select_sql, Stmt *&stmt)
+{
+  if (nullptr == db) {
+    LOG_WARN("invalid argument. db is null");
+    return RC::INVALID_ARGUMENT;
+  }
+  printf("------------------\n");
+
+  // collect tables in `from` statement
+  Tables tables;
+  TableMap table_map;
+  RC rc = collect_tables(db, select_sql, tables, table_map);
+  if (rc != RC::SUCCESS) {
+    return rc;
+  }
+
+  // setting default table
+  Table *default_table = nullptr;
+  if (tables.size() == 1) {
+    default_table = tables[0];
+  }
+
+  // create join stmts
+  if (select_sql.join_num > 0 && tables.size() > 1) {
+    LOG_ERROR("join with more than one select table is not implemented yet");
+    return RC::UNIMPLENMENT;
+  }
+
+  std::vector<JoinStmt> join_stmts;
+  rc = collect_join_stmts(db, select_sql, default_table, join_stmts);
+  if (rc != RC::SUCCESS) {
+    return rc;
+  }
+
+  // add join tables into tables for projection
+  for (JoinStmt &join : join_stmts) {
+    tables.push_back(join.join_table);
+    table_map.insert({join.join_table->name(), join.join_table});
+  }
+
+  // collect query fields in `select` statement
+  std::vector<Field> query_fields;
+  rc = collect_query_fields(db, select_sql, tables, table_map, query_fields);
+  if (rc != RC::SUCCESS) {
+    return rc;
+  }
+
+  // collect aggreagtion fields
+  std::vector<AggrField> aggr_fields;
+  rc = collect_aggr_fields(db, select_sql, tables, table_map, aggr_fields);
+  if (rc != RC::SUCCESS) {
+    return rc;
+  }
+
+  // create filter statement in `where` statement
+  FilterStmt *filter_stmt = nullptr;
+  rc = FilterStmt::create(db, default_table, &table_map, select_sql.conditions, select_sql.condition_num, filter_stmt);
+  if (rc != RC::SUCCESS) {
+    LOG_WARN("cannot construct filter stmt");
+    return rc;
+  }
+
+  for (Table *t : tables) {
+    printf("table name: %s\n", t->name());
+  }
+  for (const JoinStmt &join : join_stmts) {
+    printf("join on table: %s\n", join.join_table->name());
+    for (FilterUnit *unit : join.filter_stmt->filter_units()) {
+      printf("comp: %d\n", unit->comp());
+      print_expr(unit->left());
+      print_expr(unit->right());
+    }
+  }
+  for (const AggrField &aggr : aggr_fields) {
+    printf("%s:%s with %d\n",
+        aggr.field().table_name(),
+        aggr.is_wildcard() ? "*" : aggr.field().field_name(),
+        aggr.aggr_type());
+  }
+
+  // everything alright
+  SelectStmt *select_stmt = new SelectStmt();
+  select_stmt->tables_.swap(tables);
+  select_stmt->query_fields_.swap(query_fields);
+  select_stmt->join_stmts_.swap(join_stmts);
+  select_stmt->filter_stmt_ = filter_stmt;
+  stmt = select_stmt;
   return RC::SUCCESS;
 }

@@ -54,6 +54,7 @@ public:
     aggr_type_(aggr_type), field_(table, field) {}
   AggrType aggr_type() const { return aggr_type_; }
   const Field &field() const { return field_; }
+  bool is_wildcard() const { return field_.meta() == nullptr; }
 
 private:
   AggrType aggr_type_;

@@ -93,18 +93,18 @@ void aggregate_init(Aggregate *aggr, AggrType aggr_type, int is_attr, RelAttr *a
   aggr->aggr_type = aggr_type;
   aggr->is_attr = is_attr;
   if (is_attr) {
-    aggr->attr = attr;
+    aggr->attr = *attr;
   } else {
-    aggr->value = value;
+    aggr->value = *value;
   }
 }
 
 void aggregate_destroy(Aggregate *aggr)
 {
   if (aggr->is_attr) {
-    relation_attr_destroy(aggr->attr);
+    relation_attr_destroy(&aggr->attr);
   } else {
-    value_destroy(aggr->value);
+    value_destroy(&aggr->value);
   }
 }
 
@@ -180,9 +180,13 @@ void select_append_joins(Selects *selects, Join joins[], size_t join_num)
   selects->join_num = join_num;
 }
 
-void selects_append_aggregate(Selects *selects, Aggregate *aggregate)
+void selects_append_aggregates(Selects *selects, Aggregate aggrs[], size_t aggr_num)
 {
-  selects->aggrs[selects->aggr_num++] = *aggregate;
+  assert(aggr_num < sizeof(selects->aggrs) / sizeof(selects->aggrs[0]));
+  for (size_t i = 0; i < aggr_num; i++) {
+    selects->aggrs[i] = aggrs[i];
+  }
+  selects->aggr_num = aggr_num;
 }
 
 void selects_destroy(Selects *selects)

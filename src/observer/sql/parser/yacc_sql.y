@@ -29,6 +29,8 @@ typedef struct ParserContext {
 	Join joins[MAX_NUM];
 
 	AggrType aggr_type;
+	size_t aggr_length;
+	Aggregate aggrs[MAX_NUM];
 
   CompOp comp;
 } ParserContext;
@@ -52,6 +54,7 @@ void yyerror(yyscan_t scanner, const char *str)
   context->ssql->flag = SCF_ERROR;
   context->condition_length = 0;
 	context->join_condition_length = 0;
+	context->aggr_length=0;
   context->from_length = 0;
   context->select_length = 0;
   context->value_length = 0;
@@ -379,12 +382,15 @@ select:				/*  select 语句的语法解析树*/
 
 			select_append_joins(&CONTEXT->ssql->sstr.selection, CONTEXT->joins, CONTEXT->join_length);
 
+			selects_append_aggregates(&CONTEXT->ssql->sstr.selection, CONTEXT->aggrs, CONTEXT->aggr_length);
+
 			CONTEXT->ssql->flag=SCF_SELECT;//"select";
 			// CONTEXT->ssql->sstr.selection.attr_num = CONTEXT->select_length;
 
 			//临时变量清零
 			CONTEXT->condition_length=0;
 			CONTEXT->join_condition_length=0;
+			CONTEXT->aggr_length=0;
 			CONTEXT->join_length=0;
 			CONTEXT->from_length=0;
 			CONTEXT->select_length=0;
@@ -428,7 +434,7 @@ attr_list:
         // CONTEXT->ssql->sstr.selection.attributes[CONTEXT->select_length].attribute_name=$4;
         // CONTEXT->ssql->sstr.selection.attributes[CONTEXT->select_length++].relation_name=$2;
   	  }
-		| aggr_func attr_list {
+		| COMMA aggr_func attr_list {
 
 		}
   	;
@@ -440,7 +446,7 @@ aggr_func:
 
 			Aggregate aggr;
 			aggregate_init(&aggr, CONTEXT->aggr_type, 1, &attr, NULL);
-			selects_append_aggregate(&CONTEXT->ssql->sstr.selection, &aggr);
+			CONTEXT->aggrs[CONTEXT->aggr_length++] = aggr;
 		}
 		| aggr_type LBRACE ID DOT ID RBRACE {
 			RelAttr attr;
@@ -448,7 +454,7 @@ aggr_func:
 
 			Aggregate aggr;
 			aggregate_init(&aggr, CONTEXT->aggr_type, 1, &attr, NULL);
-			selects_append_aggregate(&CONTEXT->ssql->sstr.selection, &aggr);
+			CONTEXT->aggrs[CONTEXT->aggr_length++] = aggr;
 		}
 		| aggr_type LBRACE STAR RBRACE {
 			RelAttr attr;
@@ -456,7 +462,7 @@ aggr_func:
 
 			Aggregate aggr;
 			aggregate_init(&aggr, CONTEXT->aggr_type, 1, &attr, NULL);
-			selects_append_aggregate(&CONTEXT->ssql->sstr.selection, &aggr);
+			CONTEXT->aggrs[CONTEXT->aggr_length++] = aggr;
 		}
 		;
 

@@ -87,8 +87,8 @@ typedef struct _JoinConditon {
 typedef struct _Aggregate {
   AggrType aggr_type;
   int is_attr;
-  Value *value;
-  RelAttr *attr;
+  Value value;
+  RelAttr attr;
 } Aggregate;
 
 // struct of select
@@ -242,7 +242,7 @@ void attr_info_init(AttrInfo *attr_info, const char *name, AttrType type, size_t
 void attr_info_destroy(AttrInfo *attr_info);
 
 void selects_init(Selects *selects, ...);
-void selects_append_aggregate(Selects *selects, Aggregate *aggregate);
+void selects_append_aggregates(Selects *selects, Aggregate aggrs[], size_t aggr_num);
 void selects_append_attribute(Selects *selects, RelAttr *rel_attr);
 void selects_append_relation(Selects *selects, const char *relation_name);
 void selects_append_conditions(Selects *selects, Condition conditions[], size_t condition_num);

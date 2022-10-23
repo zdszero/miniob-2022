@@ -27,6 +27,9 @@ class FilterStmt;
 class Db;
 class Table;
 
+using Tables = std::vector<Table *>;
+using TableMap = std::unordered_map<std::string, Table *>;
+
 struct JoinStmt {
   Table *join_table;
   FilterStmt *filter_stmt;
@@ -58,6 +61,10 @@ public:
   {
     return join_stmts_;
   }
+  const std::vector<AggrField> aggr_fields() const
+  {
+    return aggr_fields_;
+  }
   FilterStmt *filter_stmt() const
   {
     return filter_stmt_;
@@ -65,14 +72,9 @@ public:
 
 private:
   std::vector<Field> query_fields_;
+  std::vector<AggrField> aggr_fields_;
   std::vector<JoinStmt> join_stmts_;
-  std::vector<Table *> tables_;
+  Tables tables_;
   FilterStmt *filter_stmt_ = nullptr;
-
-  static RC collect_tables(
-      Db *db, Selects &select_sql, std::vector<Table *> &tables, std::unordered_map<std::string, Table *> &table_map);
-  static RC collect_join_stmts(Db *db, Selects &select_sql, Table *default_table, std::vector<JoinStmt> &join_stmts);
-  static RC collect_query_fields(Db *db, Selects &select_sql, const std::vector<Table *> &tables,
-      const std::unordered_map<std::string, Table *> &table_map, std::vector<Field> &query_fields);
 };
 
