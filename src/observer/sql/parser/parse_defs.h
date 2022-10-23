@@ -51,6 +51,15 @@ typedef enum {
   FLOATS,
 } AttrType;
 
+typedef enum {
+  UNDEFINEDAGG,
+  MAXS,
+  MINS,
+  AVGS,
+  SUMS,
+  COUNTS,
+} AggrType;
+
 //属性值
 typedef struct _Value {
   AttrType type;  // type of value
@@ -75,6 +84,13 @@ typedef struct _JoinConditon {
   Condition conditions[MAX_NUM];
 } Join;
 
+typedef struct _Aggregate {
+  AggrType aggr_type;
+  int is_attr;
+  Value *value;
+  RelAttr *attr;
+} Aggregate;
+
 // struct of select
 typedef struct {
   size_t attr_num;                // Length of attrs in Select clause
@@ -85,6 +101,8 @@ typedef struct {
   Condition conditions[MAX_NUM];  // conditions in Where clause
   size_t join_num;
   Join joins[MAX_NUM];
+  size_t aggr_num;
+  Aggregate aggrs[MAX_NUM];
 } Selects;
 
 // struct of insert
@@ -213,6 +231,9 @@ void value_destroy(Value *value);
 void join_init(Join *join, const char *join_table, Condition conditions[], size_t condition_num);
 void join_destroy(Join *join);
 
+void aggregate_init(Aggregate *aggr, AggrType aggr_type, int is_attr, RelAttr *attr, Value *value);
+void aggregate_destroy(Aggregate *aggr);
+
 void condition_init(Condition *condition, CompOp comp, int left_is_attr, RelAttr *left_attr, Value *left_value,
     int right_is_attr, RelAttr *right_attr, Value *right_value);
 void condition_destroy(Condition *condition);
@@ -221,6 +242,7 @@ void attr_info_init(AttrInfo *attr_info, const char *name, AttrType type, size_t
 void attr_info_destroy(AttrInfo *attr_info);
 
 void selects_init(Selects *selects, ...);
+void selects_append_aggregate(Selects *selects, Aggregate *aggregate);
 void selects_append_attribute(Selects *selects, RelAttr *rel_attr);
 void selects_append_relation(Selects *selects, const char *relation_name);
 void selects_append_conditions(Selects *selects, Condition conditions[], size_t condition_num);

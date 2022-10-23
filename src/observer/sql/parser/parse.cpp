@@ -88,6 +88,26 @@ void join_destroy(Join *join) {
   join->join_table_name = nullptr;
 }
 
+void aggregate_init(Aggregate *aggr, AggrType aggr_type, int is_attr, RelAttr *attr, Value *value)
+{
+  aggr->aggr_type = aggr_type;
+  aggr->is_attr = is_attr;
+  if (is_attr) {
+    aggr->attr = attr;
+  } else {
+    aggr->value = value;
+  }
+}
+
+void aggregate_destroy(Aggregate *aggr)
+{
+  if (aggr->is_attr) {
+    relation_attr_destroy(aggr->attr);
+  } else {
+    value_destroy(aggr->value);
+  }
+}
+
 void condition_init(Condition *condition, CompOp comp, int left_is_attr, RelAttr *left_attr, Value *left_value,
     int right_is_attr, RelAttr *right_attr, Value *right_value)
 {
@@ -160,6 +180,11 @@ void select_append_joins(Selects *selects, Join joins[], size_t join_num)
   selects->join_num = join_num;
 }
 
+void selects_append_aggregate(Selects *selects, Aggregate *aggregate)
+{
+  selects->aggrs[selects->aggr_num++] = *aggregate;
+}
+
 void selects_destroy(Selects *selects)
 {
   for (size_t i = 0; i < selects->attr_num; i++) {
@@ -182,6 +207,10 @@ void selects_destroy(Selects *selects)
     join_destroy(&selects->joins[i]);
   }
   selects->join_num = 0;
+
+  for (size_t i = 0; i < selects->aggr_num; i++) {
+    aggregate_destroy(&selects->aggrs[i]);
+  }
 }
 
 void inserts_init(Inserts *inserts, const char *relation_name, Value values[], size_t value_num)

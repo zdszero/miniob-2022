@@ -28,6 +28,8 @@ typedef struct ParserContext {
 	size_t join_length;
 	Join joins[MAX_NUM];
 
+	AggrType aggr_type;
+
   CompOp comp;
 } ParserContext;
 
@@ -117,6 +119,12 @@ ParserContext *get_context(yyscan_t scanner)
 				NOT
 				INNER
 				JOIN
+				MAX
+				MIN
+				AVG
+				SUM
+				COUNT
+
 
 %union {
   struct _Attr *attr;
@@ -400,6 +408,9 @@ select_attr:
 			relation_attr_init(&attr, $1, $3);
 			selects_append_attribute(&CONTEXT->ssql->sstr.selection, &attr);
 		}
+		| aggr_func attr_list {
+
+		}
     ;
 attr_list:
     /* empty */
@@ -417,7 +428,45 @@ attr_list:
         // CONTEXT->ssql->sstr.selection.attributes[CONTEXT->select_length].attribute_name=$4;
         // CONTEXT->ssql->sstr.selection.attributes[CONTEXT->select_length++].relation_name=$2;
   	  }
+		| aggr_func attr_list {
+
+		}
   	;
+
+aggr_func:
+		aggr_type LBRACE ID RBRACE {
+			RelAttr attr;
+			relation_attr_init(&attr, NULL, $3);
+
+			Aggregate aggr;
+			aggregate_init(&aggr, CONTEXT->aggr_type, 1, &attr, NULL);
+			selects_append_aggregate(&CONTEXT->ssql->sstr.selection, &aggr);
+		}
+		| aggr_type LBRACE ID DOT ID RBRACE {
+			RelAttr attr;
+			relation_attr_init(&attr, $3, $5);
+
+			Aggregate aggr;
+			aggregate_init(&aggr, CONTEXT->aggr_type, 1, &attr, NULL);
+			selects_append_aggregate(&CONTEXT->ssql->sstr.selection, &aggr);
+		}
+		| aggr_type LBRACE STAR RBRACE {
+			RelAttr attr;
+			relation_attr_init(&attr, NULL, "*");
+
+			Aggregate aggr;
+			aggregate_init(&aggr, CONTEXT->aggr_type, 1, &attr, NULL);
+			selects_append_aggregate(&CONTEXT->ssql->sstr.selection, &aggr);
+		}
+		;
+
+aggr_type:
+		MAX     { CONTEXT->aggr_type = MAXS; }
+		| MIN   { CONTEXT->aggr_type = MINS; }
+		| AVG   { CONTEXT->aggr_type = AVGS; }
+		| SUM   { CONTEXT->aggr_type = SUMS; }
+		| COUNT { CONTEXT->aggr_type = COUNTS; }
+		;
 
 rel_list:
     /* empty */

@@ -59,6 +59,11 @@ RC SelectStmt::create(Db *db, Selects &select_sql, Stmt *&stmt)
   }
   printf("------------------\n");
 
+  if (select_sql.aggr_num > 0 && select_sql.attr_num > 0) {
+    LOG_ERROR("cannot select aggregation with attribute together\n");
+    return RC::SQL_SYNTAX;
+  }
+
   // collect tables in `from` statement
   std::vector<Table *> tables;
   std::unordered_map<std::string, Table *> table_map;
