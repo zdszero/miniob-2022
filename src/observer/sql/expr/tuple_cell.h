@@ -40,6 +40,7 @@ public:
 
   int compare(const TupleCell &other) const;
   bool wildcard_compare(const TupleCell &other, bool is_not) const;
+  float cast_to_number() const;
 
   const char *data() const
   {

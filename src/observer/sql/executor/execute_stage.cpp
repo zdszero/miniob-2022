@@ -27,6 +27,7 @@ See the Mulan PSL v2 for more details. */
 #include "event/sql_event.h"
 #include "event/session_event.h"
 #include "sql/expr/tuple.h"
+#include "sql/operator/aggregate_operator.h"
 #include "sql/operator/join_operator.h"
 #include "sql/operator/multi_scan_operator.h"
 #include "sql/operator/table_scan_operator.h"
@@ -256,6 +257,50 @@ void print_tuple_header(std::ostream &os, const ProjectOperator &oper)
   }
 }
 
+static std::string aggregate_type_str(AggrType aggr_type)
+{
+  switch (aggr_type) {
+    case MAXS:
+      return "max";
+    case MINS:
+      return "min";
+    case AVGS:
+      return "avg";
+    case SUMS:
+      return "sum";
+    case COUNTS:
+      return "count";
+    default:
+      LOG_ERROR("unknown aggregation type\n");
+      break;
+  }
+  return "";
+}
+
+
+void print_aggregate_header(std::ostream &os, SelectStmt *select_stmt)
+{
+  auto &aggrs = select_stmt->aggr_fields();
+  bool is_multi_table = (select_stmt->tables().size() > 1);
+  bool first = true;
+  for (const AggrField &aggr : aggrs) {
+    if (!first) {
+      os << " | ";
+    }
+    // add header
+    os << aggregate_type_str(aggr.aggr_type());
+    os << "(";
+    if (is_multi_table) {
+      const char *table_name = aggr.field().table_name();
+      os << table_name << ".";
+    }
+    os << (aggr.is_wildcard() ? "*" : aggr.field().field_name());
+    os << ")";
+    first = false;
+  }
+  os << std::endl;
+}
+
 // ProjectTuple
 void tuple_to_string(std::ostream &os, const Tuple &tuple)
 {
@@ -423,41 +468,65 @@ RC ExecuteStage::do_select(SQLStageEvent *sql_event)
 
   PredicateOperator pred_oper(select_stmt->filter_stmt());
   pred_oper.add_child(scan_oper);
-  ProjectOperator project_oper;
-  project_oper.add_child(&pred_oper);
-  for (const Field &field : select_stmt->query_fields()) {
-    project_oper.add_projection(field, select_stmt->tables().size()>1);
-  }
-  rc = project_oper.open();
-  if (rc != RC::SUCCESS) {
-    LOG_WARN("failed to open operator");
-    return rc;
-  }
-
-  std::stringstream ss;
-  print_tuple_header(ss, project_oper);
-  while ((rc = project_oper.next()) == RC::SUCCESS) {
-    // get current record
-    // write to response
-    Tuple * tuple = project_oper.current_tuple();
-    if (nullptr == tuple) {
-      rc = RC::INTERNAL;
-      LOG_WARN("failed to get current record. rc=%s", strrc(rc));
-      break;
+  if (select_stmt->aggr_fields().empty()) {
+    printf("use project operator\n");
+    ProjectOperator project_oper;
+    project_oper.add_child(&pred_oper);
+    for (const Field &field : select_stmt->query_fields()) {
+      project_oper.add_projection(field, select_stmt->tables().size()>1);
+    }
+    rc = project_oper.open();
+    if (rc != RC::SUCCESS) {
+      LOG_WARN("failed to open operator");
+      return rc;
     }
 
-    tuple_to_string(ss, *tuple);
-    ss << std::endl;
-  }
+    std::stringstream ss;
+    print_tuple_header(ss, project_oper);
+    while ((rc = project_oper.next()) == RC::SUCCESS) {
+      // get current record
+      // write to response
+      Tuple * tuple = project_oper.current_tuple();
+      if (nullptr == tuple) {
+        rc = RC::INTERNAL;
+        LOG_WARN("failed to get current record. rc=%s", strrc(rc));
+        break;
+      }
 
-  if (rc != RC::RECORD_EOF) {
-    LOG_WARN("something wrong while iterate operator. rc=%s", strrc(rc));
-    project_oper.close();
+      tuple_to_string(ss, *tuple);
+      ss << std::endl;
+    }
+
+    if (rc != RC::RECORD_EOF) {
+      LOG_WARN("something wrong while iterate operator. rc=%s", strrc(rc));
+      project_oper.close();
+    } else {
+      rc = project_oper.close();
+    }
+
+    session_event->set_response(ss.str());
   } else {
-    rc = project_oper.close();
+    printf("use aggregate operator\n");
+    AggregateOperator aggregate_oper(select_stmt->aggr_fields());
+    aggregate_oper.add_child(&pred_oper);
+    RC rc = aggregate_oper.open();
+    if (rc != RC::SUCCESS) {
+      LOG_ERROR("fail to execute aggregate operator\n");
+      return rc;
+    }
+    std::stringstream ss;
+    print_aggregate_header(ss, select_stmt);
+    bool first = true;
+    for (const std::string &res : aggregate_oper.results()) {
+      if (!first) {
+        ss << " | ";
+      }
+      first = false;
+      ss << res;
+    }
+    ss << std::endl;
+    session_event->set_response(ss.str());
   }
-
-  session_event->set_response(ss.str());
   return rc;
 }
 

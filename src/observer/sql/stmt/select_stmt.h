@@ -61,7 +61,7 @@ public:
   {
     return join_stmts_;
   }
-  const std::vector<AggrField> aggr_fields() const
+  const std::vector<AggrField> &aggr_fields() const
   {
     return aggr_fields_;
   }

@@ -124,6 +124,23 @@ int TupleCell::compare(const TupleCell &other) const
   }
 }
 
+float TupleCell::cast_to_number() const
+{
+  switch (attr_type_) {
+    case INTS:
+      return static_cast<float>(*(int *)data_);
+    case FLOATS:
+      return *(float *)data_;
+    case DATES:
+      return static_cast<float>(*(int32_t *)data_);
+    case CHARS:
+      return std::atof((char *)data_);
+    default:
+      LOG_ERROR("unknown attribute type");
+      break;
+  }
+  return 0;
+}
 
 bool TupleCell::wildcard_compare(const TupleCell &other, bool is_not) const {
   if (attr_type_ != AttrType::CHARS || other.attr_type_ != AttrType::CHARS) {

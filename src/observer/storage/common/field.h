@@ -50,8 +50,8 @@ private:
 
 class AggrField {
 public:
-  AggrField(AggrType aggr_type, const Table *table, const FieldMeta *field):
-    aggr_type_(aggr_type), field_(table, field) {}
+  AggrField(AggrType aggr_type, const Table *table, const FieldMeta *field_meta):
+    aggr_type_(aggr_type), field_(table, field_meta) {}
   AggrType aggr_type() const { return aggr_type_; }
   const Field &field() const { return field_; }
   bool is_wildcard() const { return field_.meta() == nullptr; }
