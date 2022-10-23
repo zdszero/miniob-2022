@@ -20,7 +20,8 @@ See the Mulan PSL v2 for more details. */
 #include "storage/common/table.h"
 #include <sstream>
 
-void print_expr(Expression *expr) {
+void print_expr(Expression *expr)
+{
   if (expr->type() == ExprType::FIELD) {
     FieldExpr *field_expr = static_cast<FieldExpr *>(expr);
     printf("field: %s:%s\n", field_expr->field().table_name(), field_expr->field_name());
@@ -67,6 +68,75 @@ RC SelectStmt::create(Db *db, Selects &select_sql, Stmt *&stmt)
   // collect tables in `from` statement
   std::vector<Table *> tables;
   std::unordered_map<std::string, Table *> table_map;
+  RC rc = collect_tables(db, select_sql, tables, table_map);
+  if (rc != RC::SUCCESS) {
+    return rc;
+  }
+
+  // setting default table
+  Table *default_table = nullptr;
+  if (tables.size() == 1) {
+    default_table = tables[0];
+  }
+
+  // create join stmts
+  if (select_sql.join_num > 0 && tables.size() > 1) {
+    LOG_ERROR("join with more than one select table is not implemented yet");
+    return RC::UNIMPLENMENT;
+  }
+
+  std::vector<JoinStmt> join_stmts;
+  rc = collect_join_stmts(db, select_sql, default_table, join_stmts);
+  if (rc != RC::SUCCESS) {
+    return rc;
+  }
+
+  // add join tables into tables for projection
+  for (JoinStmt &join : join_stmts) {
+    tables.push_back(join.join_table);
+    table_map.insert({join.join_table->name(), join.join_table});
+  }
+
+  // collect query fields in `select` statement
+  std::vector<Field> query_fields;
+  rc = collect_query_fields(db, select_sql, tables, table_map, query_fields);
+  if (rc != RC::SUCCESS) {
+    return rc;
+  }
+
+  // create filter statement in `where` statement
+  FilterStmt *filter_stmt = nullptr;
+  rc = FilterStmt::create(db, default_table, &table_map, select_sql.conditions, select_sql.condition_num, filter_stmt);
+  if (rc != RC::SUCCESS) {
+    LOG_WARN("cannot construct filter stmt");
+    return rc;
+  }
+
+  for (Table *t : tables) {
+    printf("table name: %s\n", t->name());
+  }
+  for (const JoinStmt &join : join_stmts) {
+    printf("join on table: %s\n", join.join_table->name());
+    for (FilterUnit *unit : join.filter_stmt->filter_units()) {
+      printf("comp: %d\n", unit->comp());
+      print_expr(unit->left());
+      print_expr(unit->right());
+    }
+  }
+
+  // everything alright
+  SelectStmt *select_stmt = new SelectStmt();
+  select_stmt->tables_.swap(tables);
+  select_stmt->query_fields_.swap(query_fields);
+  select_stmt->join_stmts_.swap(join_stmts);
+  select_stmt->filter_stmt_ = filter_stmt;
+  stmt = select_stmt;
+  return RC::SUCCESS;
+}
+
+RC SelectStmt::collect_tables(
+    Db *db, Selects &select_sql, std::vector<Table *> &tables, std::unordered_map<std::string, Table *> &table_map)
+{
   for (int i = select_sql.relation_num - 1; i >= 0; i--) {
     const char *table_name = select_sql.relations[i];
     if (nullptr == table_name) {
@@ -83,20 +153,11 @@ RC SelectStmt::create(Db *db, Selects &select_sql, Stmt *&stmt)
     tables.push_back(table);
     table_map.insert(std::pair<std::string, Table *>(table_name, table));
   }
+  return RC::SUCCESS;
+}
 
-  Table *default_table = nullptr;
-  if (tables.size() == 1) {
-    default_table = tables[0];
-  }
-
-  // create join stmts
-  if (select_sql.join_num > 0 && tables.size() > 1) {
-    LOG_ERROR("join with more than one select table is not implemented yet");
-    return RC::UNIMPLENMENT;
-  }
-
-  std::vector<JoinStmt> join_stmts;
-
+RC SelectStmt::collect_join_stmts(Db *db, Selects &select_sql, Table *default_table, std::vector<JoinStmt> &join_stmts)
+{
   std::unordered_map<std::string, Table *> join_table_map;
   if (default_table != nullptr) {
     join_table_map.insert({default_table->name(), default_table});
@@ -120,18 +181,15 @@ RC SelectStmt::create(Db *db, Selects &select_sql, Stmt *&stmt)
       return rc;
     }
     join_stmt.filter_stmt = join_filter;
-    
+
     join_stmts.push_back(join_stmt);
   }
+  return RC::SUCCESS;
+}
 
-  // add join tables into tables for projection
-  for (JoinStmt &join : join_stmts) {
-    tables.push_back(join.join_table);
-    table_map.insert({join.join_table->name(), join.join_table});
-  }
-
-  // collect query fields in `select` statement
-  std::vector<Field> query_fields;
+RC SelectStmt::collect_query_fields(Db *db, Selects &select_sql, const std::vector<Table *> &tables,
+    const std::unordered_map<std::string, Table *> &table_map, std::vector<Field> &query_fields)
+{
   for (int i = select_sql.attr_num - 1; i >= 0; i--) {
     const RelAttr &relation_attr = select_sql.attributes[i];
 
@@ -196,39 +254,5 @@ RC SelectStmt::create(Db *db, Selects &select_sql, Stmt *&stmt)
       query_fields.push_back(Field(table, field_meta));
     }
   }
-  // for (Field field : query_fields) {
-  //   printf("%s: %s\n", field.table_name(), field.field_name());
-  // }
-
-  LOG_INFO("got %d tables in from stmt and %d fields in query stmt", tables.size(), query_fields.size());
-
-  // create filter statement in `where` statement
-  FilterStmt *filter_stmt = nullptr;
-  RC rc =
-      FilterStmt::create(db, default_table, &table_map, select_sql.conditions, select_sql.condition_num, filter_stmt);
-  if (rc != RC::SUCCESS) {
-    LOG_WARN("cannot construct filter stmt");
-    return rc;
-  }
-
-  for (Table *t : tables) {
-    printf("table name: %s\n", t->name());
-  }
-  for (const JoinStmt &join : join_stmts) {
-    printf("join on table: %s\n", join.join_table->name());
-    for (FilterUnit *unit : join.filter_stmt->filter_units()) {
-      printf("comp: %d\n", unit->comp());
-      print_expr(unit->left());
-      print_expr(unit->right());
-    }
-  }
-
-  // everything alright
-  SelectStmt *select_stmt = new SelectStmt();
-  select_stmt->tables_.swap(tables);
-  select_stmt->query_fields_.swap(query_fields);
-  select_stmt->join_stmts_.swap(join_stmts);
-  select_stmt->filter_stmt_ = filter_stmt;
-  stmt = select_stmt;
   return RC::SUCCESS;
 }

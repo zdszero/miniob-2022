@@ -47,3 +47,15 @@ private:
   const Table *table_ = nullptr;
   const FieldMeta *field_ = nullptr;
 };
+
+class AggrField {
+public:
+  AggrField(AggrType aggr_type, const Table *table, const FieldMeta *field):
+    aggr_type_(aggr_type), field_(table, field) {}
+  AggrType aggr_type() const { return aggr_type_; }
+  const Field &field() const { return field_; }
+
+private:
+  AggrType aggr_type_;
+  Field field_;
+};

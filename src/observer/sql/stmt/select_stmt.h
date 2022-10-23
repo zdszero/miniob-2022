@@ -14,6 +14,7 @@ See the Mulan PSL v2 for more details. */
 
 #pragma once
 
+#include <unordered_map>
 #include <vector>
 
 #include "rc.h"
@@ -67,5 +68,11 @@ private:
   std::vector<JoinStmt> join_stmts_;
   std::vector<Table *> tables_;
   FilterStmt *filter_stmt_ = nullptr;
+
+  static RC collect_tables(
+      Db *db, Selects &select_sql, std::vector<Table *> &tables, std::unordered_map<std::string, Table *> &table_map);
+  static RC collect_join_stmts(Db *db, Selects &select_sql, Table *default_table, std::vector<JoinStmt> &join_stmts);
+  static RC collect_query_fields(Db *db, Selects &select_sql, const std::vector<Table *> &tables,
+      const std::unordered_map<std::string, Table *> &table_map, std::vector<Field> &query_fields);
 };
 
