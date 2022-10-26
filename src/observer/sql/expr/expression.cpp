@@ -102,7 +102,13 @@ Expression *ExprFactory::create(ast *t, const ExprContext &ctx)
     return new FieldExpr(ctx.GetTable(t->attr), ctx.GetFieldMeta(t->attr));
   } else if (t->nodetype == NodeType::AGGRN) {
     if (t->aggr.is_attr) {
-      return new AggregateExpr(t->aggr.aggr_type, ctx.GetTable(t->aggr.attr), ctx.GetFieldMeta(t->aggr.attr));
+      const FieldMeta *field_meta;
+      if (strcmp(t->aggr.attr.attribute_name, "*") == 0) {
+        field_meta = nullptr;
+      } else {
+        field_meta = ctx.GetFieldMeta(t->aggr.attr);
+      }
+      return new AggregateExpr(t->aggr.aggr_type, ctx.GetTable(t->aggr.attr), field_meta);
     } else {
       return new ValueExpr(t->aggr.value);
     }

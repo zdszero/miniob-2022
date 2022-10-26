@@ -117,6 +117,11 @@ public:
     return field_.field_name();
   }
 
+  bool is_star() const
+  {
+    return field_.meta() ==  nullptr;
+  }
+
   RC get_value(const Tuple &tuple, TupleCell &cell) override;
 
 private:

@@ -131,7 +131,7 @@ void print_expr(Expression *expr, int level)
   } else if (expr->type() == ExprType::AGGREGATE) {
     AggregateExpr *aggr_expr = static_cast<AggregateExpr *>(expr);
     std::cout << aggregate_func_string(aggr_expr->aggr_type()) << "(" <<
-      aggr_expr->field_name() << ")" << std::endl;
+      (aggr_expr->is_star() ? "*" : aggr_expr->field_name()) << ")" << std::endl;
   } else if (expr->type() == ExprType::COMPOUND) {
     CompoundExpr *compound_expr = static_cast<CompoundExpr *>(expr);
     std::cout << mathop_to_string(compound_expr->get_mathop()) << std::endl;
