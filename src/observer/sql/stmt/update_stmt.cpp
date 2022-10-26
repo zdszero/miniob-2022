@@ -15,6 +15,7 @@ See the Mulan PSL v2 for more details. */
 #include "sql/stmt/update_stmt.h"
 #include "common/log/log.h"
 #include "storage/common/db.h"
+#include "util/check.h"
 
 UpdateStmt::~UpdateStmt() {
   if (filter_stmt_) {
@@ -44,12 +45,17 @@ RC UpdateStmt::create(Db *db, Updates &updates_sql, Stmt *&stmt)
     LOG_WARN("no such field. field=%s.%s.%s", db->name(), table->name(), attr_name);
     return RC::SCHEMA_FIELD_MISSING;
   }
+  // value
+  ExprContext update_ctx(table);
+  size_t attr_cnt = 0;
+  size_t aggr_cnt = 0;
+  RC rc = check_leaf_node(updates_sql.expr, update_ctx, attr_cnt, aggr_cnt);
+  if (rc != RC::SUCCESS) {
+    return rc;
+  }
   // filter
-  std::unordered_map<std::string, Table *> table_map;
-  table_map.insert(std::pair<std::string, Table *>(std::string(table_name), table));
   FilterStmt *filter_stmt = nullptr;
-  table_map.emplace(std::pair<std::string, Table *>(table_name, table));
-  RC rc = FilterStmt::create(db, table, &table_map, updates_sql.conditions, updates_sql.condition_num, filter_stmt);
+  rc = FilterStmt::create(update_ctx, updates_sql.conditions, updates_sql.condition_num, filter_stmt);
   if (rc != RC::SUCCESS) {
     LOG_WARN("cannot construct filter stmt");
     return rc;
@@ -60,7 +66,7 @@ RC UpdateStmt::create(Db *db, Updates &updates_sql, Stmt *&stmt)
   update_stmt->table_ = table;
   update_stmt->update_field_meta_ = field_meta;
   update_stmt->filter_stmt_ = filter_stmt;
-  update_stmt->update_value_ = updates_sql.value;
+  update_stmt->update_value_ = updates_sql.expr->val;
   stmt = update_stmt;
   return RC::SUCCESS;
 }

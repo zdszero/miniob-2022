@@ -1,8 +1,8 @@
 #pragma once
 
-#include "sql/expr/tuple_cell.h"
 #include <algorithm>
 #include <cstdlib>
+#include <cstring>
 #include <iostream>
 #include <string>
 

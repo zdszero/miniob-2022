@@ -31,13 +31,8 @@ public:
   TupleCellSpec(Expression *expr) : expression_(expr)
   {}
 
-  ~TupleCellSpec()
-  {
-    if (expression_) {
-      delete expression_;
-      expression_ = nullptr;
-    }
-  }
+  // association, not composition
+  ~TupleCellSpec() = default;
 
   void set_alias(const std::string &alias)
   {

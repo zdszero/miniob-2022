@@ -14,8 +14,13 @@ See the Mulan PSL v2 for more details. */
 
 #pragma once
 
-#include "sql/parser/parse_defs.h"
+#include "sql/expr/expression.h"
 #include <string>
 
 std::string double2string(double v);
+std::string value2string(const Value &value);
 bool is_numeric_type(AttrType type);
+std::string mathop_to_string(MathOp mathop);
+std::string aggregate_func_string(AggrType aggr_type);
+std::string comp_to_string(CompOp comp);
+void print_expr(Expression *expr, int level=0);

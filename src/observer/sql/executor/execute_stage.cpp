@@ -280,25 +280,25 @@ static std::string aggregate_type_str(AggrType aggr_type)
 
 void print_aggregate_header(std::ostream &os, SelectStmt *select_stmt)
 {
-  auto &aggrs = select_stmt->aggr_fields();
-  bool is_multi_table = (select_stmt->tables().size() > 1);
-  bool first = true;
-  for (const AggrField &aggr : aggrs) {
-    if (!first) {
-      os << " | ";
-    }
-    // add header
-    os << aggregate_type_str(aggr.aggr_type());
-    os << "(";
-    if (is_multi_table) {
-      const char *table_name = aggr.field().table_name();
-      os << table_name << ".";
-    }
-    os << (aggr.is_wildcard() ? "*" : aggr.field().field_name());
-    os << ")";
-    first = false;
-  }
-  os << std::endl;
+  // auto &aggrs = select_stmt->aggr_fields();
+  // bool is_multi_table = (select_stmt->tables().size() > 1);
+  // bool first = true;
+  // for (const AggrField &aggr : aggrs) {
+  //   if (!first) {
+  //     os << " | ";
+  //   }
+  //   // add header
+  //   os << aggregate_type_str(aggr.aggr_type());
+  //   os << "(";
+  //   if (is_multi_table) {
+  //     const char *table_name = aggr.field().table_name();
+  //     os << table_name << ".";
+  //   }
+  //   os << (aggr.is_wildcard() ? "*" : aggr.field().field_name());
+  //   os << ")";
+  //   first = false;
+  // }
+  // os << std::endl;
 }
 
 // ProjectTuple
@@ -468,12 +468,12 @@ RC ExecuteStage::do_select(SQLStageEvent *sql_event)
 
   PredicateOperator pred_oper(select_stmt->filter_stmt());
   pred_oper.add_child(scan_oper);
-  if (select_stmt->aggr_fields().empty()) {
+  if (select_stmt->select_attributes()) {
     printf("use project operator\n");
     ProjectOperator project_oper;
     project_oper.add_child(&pred_oper);
-    for (const Field &field : select_stmt->query_fields()) {
-      project_oper.add_projection(field, select_stmt->tables().size()>1);
+    for (Expression *expr : select_stmt->exprs()) {
+      project_oper.add_projection(expr, select_stmt->tables().size()>1);
     }
     rc = project_oper.open();
     if (rc != RC::SUCCESS) {
@@ -507,7 +507,7 @@ RC ExecuteStage::do_select(SQLStageEvent *sql_event)
     session_event->set_response(ss.str());
   } else {
     printf("use aggregate operator\n");
-    AggregateOperator aggregate_oper(select_stmt->aggr_fields());
+    AggregateOperator aggregate_oper(select_stmt->exprs());
     aggregate_oper.add_child(&pred_oper);
     RC rc = aggregate_oper.open();
     if (rc != RC::SUCCESS) {
@@ -654,9 +654,9 @@ RC ExecuteStage::do_insert(SQLStageEvent *sql_event)
   InsertStmt *insert_stmt = (InsertStmt *)stmt;
   Table *table = insert_stmt->table();
 
-  RC rc;
-  for (const Value *values : insert_stmt->value_pairs()) {
-    rc = table->insert_record(trx, insert_stmt->value_amount(), values);
+  RC rc = RC::SUCCESS;
+  for (const std::vector<Value> &values : insert_stmt->value_pairs()) {
+    rc = table->insert_record(trx, insert_stmt->value_amount(), values.data());
     if (rc == RC::SUCCESS) {
       if (!session->is_trx_multi_operation_mode()) {
         CLogRecord *clog_record = nullptr;

@@ -116,20 +116,12 @@ public:
   }
 
 public:
-  static RC create(Db *db, Table *default_table, std::unordered_map<std::string, Table *> *tables,
-      Condition *conditions, int condition_num, FilterStmt *&stmt);
+  static RC create(ExprContext &ctx, Condition *conditions, int condition_num, FilterStmt *&stmt);
 
-  static RC create_filter_unit(Db *db, Table *default_table, std::unordered_map<std::string, Table *> *tables,
-      Condition &condition, FilterUnit *&filter_unit);
-
-  bool impossible()
-  {
-    return impossible_;
-  }
+  static RC create_filter_unit(ExprContext &ctx, Condition &condition, FilterUnit *&filter_unit);
 
 private:
   std::vector<FilterUnit *> filter_units_;  // 默认当前都是AND关系
-  bool impossible_{false};
 
   static RC check_field_with_value(AttrType field_type, Value &value, CompOp op);
 };

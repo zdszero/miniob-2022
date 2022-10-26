@@ -12,6 +12,7 @@ See the Mulan PSL v2 for more details. */
 // Created by Meiyi 
 //
 
+#include <cassert>
 #include <mutex>
 #include "sql/parser/parse.h"
 #include "rc.h"
@@ -23,6 +24,89 @@ RC parse(char *st, Query *sqln);
 #ifdef __cplusplus
 extern "C" {
 #endif  // __cplusplus
+
+ast *new_value_node(Value *value)
+{
+  ast *n = (ast *)malloc(sizeof(ast));
+  n->nodetype = VALN;
+  n->val = *value;
+  n->l_brace = 0;
+  n->r_brace = 0;
+  return n;
+}
+
+ast *new_attr_node(RelAttr *attr)
+{
+  ast *n = (ast *)malloc(sizeof(ast));
+  n->nodetype = ATTRN;
+  n->attr = *attr;
+  n->l_brace = 0;
+  n->r_brace = 0;
+  return n;
+}
+
+ast *new_aggr_node(Aggregate *aggr)
+{
+  ast *n = (ast *)malloc(sizeof(ast));
+  n->nodetype = AGGRN;
+  n->aggr = *aggr;
+  n->l_brace = 0;
+  n->r_brace = 0;
+  return n;
+}
+
+ast *new_op_node(MathOp mathop, ast *l, ast *r)
+{
+  ast *n = (ast *)malloc(sizeof(ast));
+  n->nodetype = OPN;
+  n->op.left = l;
+  n->op.right = r;
+  n->op.mathop = mathop;
+  n->l_brace = 0;
+  n->r_brace = 0;
+  return n;
+}
+
+void node_destroy(ast *n)
+{
+  if (n == nullptr) {
+    return;
+  }
+  switch (n->nodetype) {
+    case OPN:
+      node_destroy(n->op.left);
+      node_destroy(n->op.right);
+      break;
+    case VALN:
+      value_destroy(&n->val);
+      break;
+    case ATTRN:
+      relation_attr_destroy(&n->attr);
+      break;
+    case AGGRN:
+      aggregate_destroy(&n->aggr);
+      break;
+    default:
+      assert(0);
+  }
+}
+
+void condition_init(Condition *condition, CompOp comp, ast *l, ast *r)
+{
+  condition->comp = comp;
+  condition->left_ast = l;
+  condition->right_ast = r;
+}
+
+void condition_destroy(Condition *condition)
+{
+  assert(condition->left_ast && condition->right_ast);
+  node_destroy(condition->left_ast);
+  node_destroy(condition->right_ast);
+  condition->left_ast = NULL;
+  condition->right_ast = NULL;
+}
+
 void relation_attr_init(RelAttr *relation_attr, const char *relation_name, const char *attribute_name)
 {
   if (relation_name != nullptr) {
@@ -108,38 +192,6 @@ void aggregate_destroy(Aggregate *aggr)
   }
 }
 
-void condition_init(Condition *condition, CompOp comp, int left_is_attr, RelAttr *left_attr, Value *left_value,
-    int right_is_attr, RelAttr *right_attr, Value *right_value)
-{
-  condition->comp = comp;
-  condition->left_is_attr = left_is_attr;
-  if (left_is_attr) {
-    condition->left_attr = *left_attr;
-  } else {
-    condition->left_value = *left_value;
-  }
-
-  condition->right_is_attr = right_is_attr;
-  if (right_is_attr) {
-    condition->right_attr = *right_attr;
-  } else {
-    condition->right_value = *right_value;
-  }
-}
-void condition_destroy(Condition *condition)
-{
-  if (condition->left_is_attr) {
-    relation_attr_destroy(&condition->left_attr);
-  } else {
-    value_destroy(&condition->left_value);
-  }
-  if (condition->right_is_attr) {
-    relation_attr_destroy(&condition->right_attr);
-  } else {
-    value_destroy(&condition->right_value);
-  }
-}
-
 void attr_info_init(AttrInfo *attr_info, const char *name, AttrType type, size_t length)
 {
   attr_info->name = strdup(name);
@@ -153,10 +205,16 @@ void attr_info_destroy(AttrInfo *attr_info)
 }
 
 void selects_init(Selects *selects, ...);
-void selects_append_attribute(Selects *selects, RelAttr *rel_attr)
+
+void select_append_exprs(Selects *selects, ast* exprs[], size_t expr_num)
 {
-  selects->attributes[selects->attr_num++] = *rel_attr;
+  assert(expr_num <= MAX_NUM);
+  for (size_t i = 0; i < expr_num; i++) {
+    selects->exprs[i] = exprs[i];
+  }
+  selects->expr_num = expr_num;
 }
+
 void selects_append_relation(Selects *selects, const char *relation_name)
 {
   selects->relations[selects->relation_num++] = strdup(relation_name);
@@ -180,22 +238,8 @@ void select_append_joins(Selects *selects, Join joins[], size_t join_num)
   selects->join_num = join_num;
 }
 
-void selects_append_aggregates(Selects *selects, Aggregate aggrs[], size_t aggr_num)
-{
-  assert(aggr_num < sizeof(selects->aggrs) / sizeof(selects->aggrs[0]));
-  for (size_t i = 0; i < aggr_num; i++) {
-    selects->aggrs[i] = aggrs[i];
-  }
-  selects->aggr_num = aggr_num;
-}
-
 void selects_destroy(Selects *selects)
 {
-  for (size_t i = 0; i < selects->attr_num; i++) {
-    relation_attr_destroy(&selects->attributes[i]);
-  }
-  selects->attr_num = 0;
-
   for (size_t i = 0; i < selects->relation_num; i++) {
     free(selects->relations[i]);
     selects->relations[i] = NULL;
@@ -212,8 +256,8 @@ void selects_destroy(Selects *selects)
   }
   selects->join_num = 0;
 
-  for (size_t i = 0; i < selects->aggr_num; i++) {
-    aggregate_destroy(&selects->aggrs[i]);
+  for (size_t i = 0; i < selects->expr_num; i++) {
+    node_destroy(selects->exprs[i]);
   }
 }
 
@@ -221,14 +265,14 @@ void inserts_init(Inserts *inserts, const char *relation_name)
 {
   inserts->relation_name = strdup(relation_name);
 }
-void insert_append_values(Inserts *inserts, Value values[], size_t value_num)
+void insert_append_exprs(Inserts *inserts, ast* exprs[], size_t expr_num)
 {
-  assert(value_num <= MAX_NUM);
+  assert(expr_num <= MAX_NUM);
 
-  for (size_t i = 0; i < value_num; i++) {
-    inserts->pairs[inserts->pair_num].values[i] = values[i];
+  for (size_t i = 0; i < expr_num; i++) {
+    inserts->pairs[inserts->pair_num].exprs[i] = exprs[i];
   }
-  inserts->pairs[inserts->pair_num].value_num = value_num;
+  inserts->pairs[inserts->pair_num].expr_num = expr_num;
   inserts->pair_num++;
 }
 void inserts_destroy(Inserts *inserts)
@@ -237,10 +281,10 @@ void inserts_destroy(Inserts *inserts)
   inserts->relation_name = nullptr;
 
   for (size_t i = 0; i < inserts->pair_num; i++) {
-    for (size_t j = 0; j < inserts->pairs[i].value_num; j++) {
-      value_destroy(&inserts->pairs[i].values[j]);
+    for (size_t j = 0; j < inserts->pairs[i].expr_num; j++) {
+      node_destroy(inserts->pairs[i].exprs[j]);
     }
-    inserts->pairs[i].value_num = 0;
+    inserts->pairs[i].expr_num = 0;
   }
   inserts->pair_num = 0;
 }
@@ -268,12 +312,12 @@ void deletes_destroy(Deletes *deletes)
   deletes->relation_name = nullptr;
 }
 
-void updates_init(Updates *updates, const char *relation_name, const char *attribute_name, Value *value,
+void updates_init(Updates *updates, const char *relation_name, const char *attribute_name, ast *expr,
     Condition conditions[], size_t condition_num)
 {
   updates->relation_name = strdup(relation_name);
   updates->attribute_name = strdup(attribute_name);
-  updates->value = *value;
+  updates->expr = expr;
 
   assert(condition_num <= sizeof(updates->conditions) / sizeof(updates->conditions[0]));
   for (size_t i = 0; i < condition_num; i++) {
@@ -289,7 +333,7 @@ void updates_destroy(Updates *updates)
   updates->relation_name = nullptr;
   updates->attribute_name = nullptr;
 
-  value_destroy(&updates->value);
+  node_destroy(updates->expr);
 
   for (size_t i = 0; i < updates->condition_num; i++) {
     condition_destroy(&updates->conditions[i]);

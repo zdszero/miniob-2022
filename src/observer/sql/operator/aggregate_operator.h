@@ -111,7 +111,7 @@ private:
 
 class AggregateOperator : public Operator {
 public:
-  AggregateOperator(const std::vector<AggrField> &aggr_fields);
+  AggregateOperator(const std::vector<Expression *> &exprs);
   virtual ~AggregateOperator() = default;
 
   RC open() override;
@@ -123,13 +123,13 @@ public:
   {
     return results_;
   }
-  const std::vector<AggrField> &aggr_fields() const
+  const std::vector<Expression *> &aggr_fields() const
   {
     return aggr_fields_;
   }
 
 private:
-  std::vector<AggrField> aggr_fields_;
+  std::vector<Expression *> aggr_fields_;
   std::vector<Aggregator> aggregators_;
   std::vector<std::string> results_;
 };

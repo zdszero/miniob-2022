@@ -8,6 +8,7 @@ struct ParserContext;
 extern int atoi();
 extern double atof();
 
+#define YYDEBUG 0
 #if YYDEBUG > 0
 #define debug_printf  printf
 #else
@@ -35,12 +36,15 @@ QUOTE            [\'\"]
 {WHITE_SAPCE}                                        // ignore whitespace
 \n                                                   ;
 
-[\-]?{DIGIT}+                                        yylval->number=atoi(yytext); RETURN_TOKEN(NUMBER);
-[\-]?{DIGIT}+{DOT}{DIGIT}+                           yylval->floats=(float)(atof(yytext)); RETURN_TOKEN(FLOAT);
+{DIGIT}+                                             yylval->number=atoi(yytext); RETURN_TOKEN(NUMBER);
+{DIGIT}+{DOT}{DIGIT}+                                yylval->floats=(float)(atof(yytext)); RETURN_TOKEN(FLOAT);
 
 ";"                                                  RETURN_TOKEN(SEMICOLON);
 {DOT}                                                RETURN_TOKEN(DOT);
 "*"                                                  RETURN_TOKEN(STAR);
+"/"                                                  RETURN_TOKEN(SLASH);
+"+"                                                  RETURN_TOKEN(PLUS);
+"\-"                                                 RETURN_TOKEN(MINUS);
 [Ee][Xx][Ii][Tt]                                     RETURN_TOKEN(EXIT);
 [Hh][Ee][Ll][Pp]                                     RETURN_TOKEN(HELP);
 [Dd][Ee][Ss][Cc]                                     RETURN_TOKEN(DESC);

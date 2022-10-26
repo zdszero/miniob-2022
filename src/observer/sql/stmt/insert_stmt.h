@@ -25,7 +25,7 @@ class InsertStmt : public Stmt
 {
 public:
 
-  InsertStmt(Table *table, const std::vector<Value *> &value_pairs, int value_amount):
+  InsertStmt(Table *table, const std::vector<std::vector<Value>> &value_pairs, int value_amount):
     table_(table), value_pairs_(value_pairs), value_amount_(value_amount)
   {}
 
@@ -37,12 +37,12 @@ public:
 
 public:
   Table *table() const {return table_;}
-  const std::vector<Value *> value_pairs() const { return value_pairs_; }
+  const std::vector<std::vector<Value>> value_pairs() const { return value_pairs_; }
   int value_amount() const { return value_amount_; }
 
 private:
   Table *table_ = nullptr;
-  const std::vector<Value *> value_pairs_;
+  std::vector<std::vector<Value>> value_pairs_;
   int value_amount_ = 0;
 };
 

@@ -25,7 +25,7 @@ public:
 
   virtual ~ProjectOperator() = default;
 
-  void add_projection(const Field &field, bool is_multi_table);
+  void add_projection(Expression *expr, bool is_multi_table);
 
   RC open() override;
   RC next() override;

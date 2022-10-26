@@ -46,12 +46,10 @@ RC DeleteStmt::create(Db *db, Deletes &delete_sql, Stmt *&stmt)
     return RC::SCHEMA_TABLE_NOT_EXIST;
   }
 
-  std::unordered_map<std::string, Table *> table_map;
-  table_map.insert(std::pair<std::string, Table *>(std::string(table_name), table));
+  ExprContext delete_ctx(table);
 
   FilterStmt *filter_stmt = nullptr;
-  RC rc = FilterStmt::create(db, table, &table_map,
-			     delete_sql.conditions, delete_sql.condition_num, filter_stmt);
+  RC rc = FilterStmt::create(delete_ctx, delete_sql.conditions, delete_sql.condition_num, filter_stmt);
   if (rc != RC::SUCCESS) {
     LOG_WARN("failed to create filter statement. rc=%d:%s", rc, strrc(rc));
     return rc;

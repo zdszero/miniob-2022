@@ -22,9 +22,9 @@ RC InsertOperator::open()
   // TOOD: trx
   Table *table = insert_stmt_->table();
   RC rc;
-  for (Value *values : insert_stmt_->value_pairs()) {
+  for (const std::vector<Value> &values : insert_stmt_->value_pairs()) {
     int value_amount = insert_stmt_->value_amount();
-    rc = table->insert_record(nullptr, value_amount, values);
+    rc = table->insert_record(nullptr, value_amount, values.data());
     if (rc != RC::SUCCESS) {
       return rc;
     }

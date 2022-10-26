@@ -103,9 +103,6 @@ bool PredicateOperator::do_filter_unit(Tuple &tuple, const FilterUnit *filter_un
 
 bool PredicateOperator::do_predicate(Tuple &tuple)
 {
-  if (filter_stmt_->impossible()) {
-    return false;
-  }
   if (filter_stmt_ == nullptr || filter_stmt_->filter_units().empty()) {
     return true;
   }

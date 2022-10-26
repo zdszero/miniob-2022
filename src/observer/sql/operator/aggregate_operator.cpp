@@ -1,10 +1,10 @@
 #include "sql/operator/aggregate_operator.h"
 #include "common/lang/string.h"
 
-AggregateOperator::AggregateOperator(const std::vector<AggrField> &aggr_fields) : aggr_fields_(aggr_fields)
+AggregateOperator::AggregateOperator(const std::vector<Expression *> &exprs) : aggr_fields_(exprs)
 {
-  aggregators_.reserve(aggr_fields.size());
-  for (size_t i = 0; i < aggr_fields.size(); i++) {
+  aggregators_.reserve(exprs.size());
+  for (size_t i = 0; i < exprs.size(); i++) {
     // create aggregator
     aggregators_.push_back(Aggregator());
   }
@@ -26,8 +26,8 @@ RC AggregateOperator::open() {
   while ((rc = child->next()) == RC::SUCCESS) {
     Tuple *t = child->current_tuple();
     for (size_t i = 0; i < aggr_fields_.size(); i++) {
-      AggrField &aggr = aggr_fields_[i];
-      aggregators_[i].add_tuple(aggr.aggr_type(), aggr.field(), t);
+      AggregateExpr *aggr_expr = static_cast<AggregateExpr *>(aggr_fields_[i]);
+      aggregators_[i].add_tuple(aggr_expr->aggr_type(), aggr_expr->field(), t);
     }
   }
 

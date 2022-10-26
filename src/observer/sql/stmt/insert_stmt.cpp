@@ -19,6 +19,7 @@ See the Mulan PSL v2 for more details. */
 #include "storage/common/table.h"
 #include "util/date.h"
 #include "util/util.h"
+#include "util/ast_util.h"
 #include <cassert>
 #include <cmath>
 
@@ -37,25 +38,34 @@ RC InsertStmt::create(Db *db, Inserts &inserts, Stmt *&stmt)
     LOG_WARN("no such table. db=%s, table_name=%s", db->name(), table_name);
     return RC::SCHEMA_TABLE_NOT_EXIST;
   }
-
-  std::vector<Value *> value_pairs;
-  // check the fields number
   for (size_t i = 0; i < inserts.pair_num; i++) {
-    Value *values = inserts.pairs[i].values;
-    const int value_num = inserts.pairs[i].value_num;
+    // check the fields number
+    const int expr_num = inserts.pairs[i].expr_num;
     const TableMeta &table_meta = table->table_meta();
     const int field_num = table_meta.field_num() - table_meta.sys_field_num();
-    if (field_num != value_num) {
-      LOG_WARN("schema mismatch. value num=%d, field num in schema=%d", value_num, field_num);
+    if (field_num != expr_num) {
+      LOG_WARN("schema mismatch. value num=%d, field num in schema=%d", expr_num, field_num);
       return RC::SCHEMA_FIELD_MISSING;
     }
+    for (size_t j = 0; j < inserts.pairs[i].expr_num; j++) {
+      // check if expression is valid
+      if (!evaluate(inserts.pairs[i].exprs[j])) {
+        LOG_WARN("cannot evalute expression in insert stmt");
+        return RC::SQL_SYNTAX;
+      }
+    }
+  }
 
+  // do typecast
+  for (size_t i = 0; i < inserts.pair_num; i++) {
+    const int expr_num = inserts.pairs[i].expr_num;
+    const TableMeta &table_meta = table->table_meta();
     // check fields type
     const int sys_field_num = table_meta.sys_field_num();
-    for (int i = 0; i < value_num; i++) {
-      const FieldMeta *field_meta = table_meta.field(i + sys_field_num);
+    for (int j = 0; j < expr_num; j++) {
+      const FieldMeta *field_meta = table_meta.field(j + sys_field_num);
       const AttrType field_type = field_meta->type();
-      Value &value = values[i];
+      Value &value = inserts.pairs[i].exprs[j]->val;
       assert(value.type != DATES);
       assert(field_type != UNDEFINED);
       if (field_type != value.type) {
@@ -118,10 +128,20 @@ RC InsertStmt::create(Db *db, Inserts &inserts, Stmt *&stmt)
         }
       }
     }
-    value_pairs.push_back(values);
+  }
+
+  size_t expr_num = inserts.pairs[0].expr_num;
+  // create values
+  std::vector<std::vector<Value>> value_pairs;
+  value_pairs.resize(inserts.pair_num, std::vector<Value>{});
+  for (size_t i = 0; i < inserts.pair_num; i++) {
+    value_pairs[i].reserve(expr_num);
+    for (size_t j = 0; j < expr_num; j++) {
+      value_pairs[i].push_back(inserts.pairs[i].exprs[j]->val);
+    }
   }
 
   // everything alright
-  stmt = new InsertStmt(table, value_pairs, inserts.pairs[0].value_num);
+  stmt = new InsertStmt(table, value_pairs, expr_num);
   return RC::SUCCESS;
 }

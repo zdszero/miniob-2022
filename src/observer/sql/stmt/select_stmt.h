@@ -20,7 +20,6 @@ See the Mulan PSL v2 for more details. */
 #include "rc.h"
 #include "sql/expr/expression.h"
 #include "sql/stmt/stmt.h"
-#include "storage/common/field.h"
 
 class FieldMeta;
 class FilterStmt;
@@ -38,7 +37,7 @@ struct JoinStmt {
 class SelectStmt : public Stmt {
 public:
   SelectStmt() = default;
-  ~SelectStmt() override;
+  ~SelectStmt();
 
   StmtType type() const override
   {
@@ -53,26 +52,27 @@ public:
   {
     return tables_;
   }
-  const std::vector<Field> &query_fields() const
-  {
-    return query_fields_;
-  }
   const std::vector<JoinStmt> &join_stmts() const
   {
     return join_stmts_;
   }
-  const std::vector<AggrField> &aggr_fields() const
+  const std::vector<Expression *> &exprs() const
   {
-    return aggr_fields_;
+    return exprs_;
   }
   FilterStmt *filter_stmt() const
   {
     return filter_stmt_;
   }
+  bool select_attributes() const
+  {
+    return select_attributes_;
+  }
+  void Print() const;
 
 private:
-  std::vector<Field> query_fields_;
-  std::vector<AggrField> aggr_fields_;
+  bool select_attributes_{true};
+  std::vector<Expression *> exprs_;
   std::vector<JoinStmt> join_stmts_;
   Tables tables_;
   FilterStmt *filter_stmt_ = nullptr;
