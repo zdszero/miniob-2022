@@ -109,7 +109,9 @@ int TupleCell::compare(const TupleCell &other) const
         if (other.attr_type_ == CHARS) {
           int32_t date;
           RC rc = string_to_date(other.data_, date);
-          assert(rc == RC::SUCCESS);
+          if (rc != RC::SUCCESS) {
+            return rc;
+          }
           return compare_int(this->data_, &date);
         } else if (other.attr_type_ == FLOATS) {
           int v = static_cast<int>(*(float *)other.data_);

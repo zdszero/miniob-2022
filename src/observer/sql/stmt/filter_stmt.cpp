@@ -9,6 +9,7 @@ See the Mulan PSL v2 for more details. */
 #include "common/log/log.h"
 #include "common/lang/string.h"
 #include "sql/expr/expression.h"
+#include "sql/expr/tuple.h"
 #include "sql/stmt/filter_stmt.h"
 #include "storage/common/db.h"
 #include "storage/common/table.h"
@@ -34,6 +35,32 @@ static RC check_condition(Condition &condition, ExprContext &ctx)
   if (aggr_cnt > 0) {
     LOG_WARN("cannot use aggregation in condition\n");
     return RC::SQL_SYNTAX;
+  }
+  return RC::SUCCESS;
+}
+
+// SELECT * FROM date_table WHERE u_date='2017-2-29';
+// FAILURE
+static RC check_date_valid(Expression *left, Expression *right)
+{
+  if (left->type() == ExprType::VALUE || right->type() == ExprType::FIELD) {
+    Expression *tmp = left;
+    left = right;
+    right = tmp;
+  }
+  if (left->type() == ExprType::FIELD || right->type() == ExprType::VALUE) {
+    FieldExpr *left_field = static_cast<FieldExpr *>(left);
+    ValueExpr *right_value = static_cast<ValueExpr *>(right);
+    if (left_field->field().attr_type() == DATES) {
+      RowTuple unused;
+      TupleCell cell;
+      right_value->get_value(unused, cell);
+      int32_t date;
+      RC rc;
+      if ((rc = string_to_date(cell.data(), date)) != RC::SUCCESS) {
+        return rc;
+      }
+    }
   }
   return RC::SUCCESS;
 }
@@ -84,6 +111,11 @@ RC FilterStmt::create_filter_unit(ExprContext &ctx, Condition &condition, Filter
 
   Expression *left = ExprFactory::create(condition.left_ast, ctx);
   Expression *right = ExprFactory::create(condition.right_ast, ctx);
+
+  rc = check_date_valid(left, right);
+  if (rc != RC::SUCCESS) {
+    return rc;
+  }
 
   filter_unit = new FilterUnit;
   filter_unit->set_comp(comp);
