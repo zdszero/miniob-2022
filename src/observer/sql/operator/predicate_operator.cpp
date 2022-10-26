@@ -68,12 +68,15 @@ bool PredicateOperator::do_filter_unit(Tuple &tuple, const FilterUnit *filter_un
   left_expr->get_value(tuple, left_cell);
   right_expr->get_value(tuple, right_cell);
 
+  if (left_cell.attr_type() == NULLS || right_cell.attr_type() == NULLS) {
+    return false;
+  }
+
   bool filter_result = false;
 
   if (comp == STR_LIKE || comp == STR_NOT_LIKE) {
     return left_cell.wildcard_compare(right_cell, comp == STR_NOT_LIKE);
   }
-
   const int compare = left_cell.compare(right_cell);
   switch (comp) {
     case EQUAL_TO: {

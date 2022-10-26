@@ -156,7 +156,10 @@ private:
 class CompoundExpr : public Expression {
 public:
   CompoundExpr(Expression *left, Expression *right, MathOp mathop) : left_(left), right_(right), mathop_(mathop)
-  {}
+  {
+    // avoid value_destroy free dangling pointer
+    value_init_null(&result_);
+  }
   virtual ~CompoundExpr()
   {
     value_destroy(&result_);

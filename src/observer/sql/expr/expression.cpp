@@ -18,7 +18,6 @@ See the Mulan PSL v2 for more details. */
 #include "util/ast_util.h"
 #include <sstream>
 
-
 RC FieldExpr::get_value(const Tuple &tuple, TupleCell &cell)
 {
   return tuple.find_cell(field_, cell);
@@ -48,11 +47,17 @@ RC CompoundExpr::get_value(const Tuple &tuple, TupleCell &cell)
   TupleCell left_cell, right_cell;
   if (left_) {
     left_->get_value(tuple, left_cell);
+    if (left_cell.attr_type() == NULLS) {
+      goto set_null;
+    }
     left_val = left_cell.cast_to_number();
   } else {
     left_val = 0;
   }
   right_->get_value(tuple, right_cell);
+  if (right_cell.attr_type() == NULLS) {
+    goto set_null;
+  }
   right_val = right_cell.cast_to_number();
   float res;
   switch (mathop_) {
@@ -66,6 +71,9 @@ RC CompoundExpr::get_value(const Tuple &tuple, TupleCell &cell)
       res = left_val * right_val;
       break;
     case MATH_DIV:
+      if (right_val == 0) {
+        goto set_null;
+      }
       res = left_val / right_val;
       break;
     default:
@@ -74,6 +82,12 @@ RC CompoundExpr::get_value(const Tuple &tuple, TupleCell &cell)
   cell.set_type(FLOATS);
   value_init_float(&result_, res);
   cell.set_data((char *)result_.data);
+  if (false) {
+  set_null:
+    cell.set_type(NULLS);
+    value_init_null(&result_);
+    return RC::SUCCESS;
+  }
   return RC::SUCCESS;
 }
 

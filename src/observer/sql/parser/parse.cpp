@@ -148,6 +148,11 @@ void value_init_date(Value *value, int32_t v)
   value->data = malloc(sizeof(v));
   memcpy(value->data, &v, sizeof(v));
 }
+void value_init_null(Value *value)
+{
+  value->type = NULLS;
+  value->data = nullptr;
+}
 void value_destroy(Value *value)
 {
   value->type = UNDEFINED;
