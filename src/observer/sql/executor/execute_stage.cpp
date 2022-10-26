@@ -49,6 +49,7 @@ See the Mulan PSL v2 for more details. */
 #include "storage/common/condition_filter.h"
 #include "storage/trx/trx.h"
 #include "storage/clog/clog.h"
+#include "util/util.h"
 
 using namespace common;
 
@@ -257,48 +258,19 @@ void print_tuple_header(std::ostream &os, const ProjectOperator &oper)
   }
 }
 
-static std::string aggregate_type_str(AggrType aggr_type)
-{
-  switch (aggr_type) {
-    case MAXS:
-      return "max";
-    case MINS:
-      return "min";
-    case AVGS:
-      return "avg";
-    case SUMS:
-      return "sum";
-    case COUNTS:
-      return "count";
-    default:
-      LOG_ERROR("unknown aggregation type\n");
-      break;
-  }
-  return "";
-}
-
-
 void print_aggregate_header(std::ostream &os, SelectStmt *select_stmt)
 {
-  // auto &aggrs = select_stmt->aggr_fields();
-  // bool is_multi_table = (select_stmt->tables().size() > 1);
-  // bool first = true;
-  // for (const AggrField &aggr : aggrs) {
-  //   if (!first) {
-  //     os << " | ";
-  //   }
-  //   // add header
-  //   os << aggregate_type_str(aggr.aggr_type());
-  //   os << "(";
-  //   if (is_multi_table) {
-  //     const char *table_name = aggr.field().table_name();
-  //     os << table_name << ".";
-  //   }
-  //   os << (aggr.is_wildcard() ? "*" : aggr.field().field_name());
-  //   os << ")";
-  //   first = false;
-  // }
-  // os << std::endl;
+  auto &aggrs = select_stmt->exprs();
+  bool is_multi_table = (select_stmt->tables().size() > 1);
+  bool first = true;
+  for (Expression *expr : aggrs) {
+    if (!first) {
+      os << " | ";
+    }
+    os << expr_to_string(expr, is_multi_table);
+    first = false;
+  }
+  os << std::endl;
 }
 
 // ProjectTuple

@@ -23,4 +23,5 @@ bool is_numeric_type(AttrType type);
 std::string mathop_to_string(MathOp mathop);
 std::string aggregate_func_string(AggrType aggr_type);
 std::string comp_to_string(CompOp comp);
+std::string expr_to_string(Expression *expr, bool is_multi_table);
 void print_expr(Expression *expr, int level=0);

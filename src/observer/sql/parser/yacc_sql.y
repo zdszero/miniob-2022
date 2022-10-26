@@ -361,9 +361,6 @@ select_expr:
 	| exp {
 		CONTEXT->exprs[CONTEXT->expr_length++] = $1;
 	}
-	| aggr_func {
-		CONTEXT->exprs[CONTEXT->expr_length++] = $1;
-	}
 	;
 
 select_exprs:
@@ -486,6 +483,9 @@ exp :
 			RelAttr attr;
 			relation_attr_init(&attr, $1, $3);
 			$$ = new_attr_node(&attr);
+		}
+		| aggr_func {
+			$$ = $1;
 		}
 		;
 

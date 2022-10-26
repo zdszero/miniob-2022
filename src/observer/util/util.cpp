@@ -110,6 +110,37 @@ std::string aggregate_func_string(AggrType aggr_type)
   return "";
 }
 
+std::string expr_to_string(Expression *expr, bool is_multi_table)
+{
+  if (expr == nullptr) {
+    return "";
+  }
+  std::stringstream ss;
+  if (expr->type() == ExprType::FIELD) {
+    FieldExpr *field_expr = static_cast<FieldExpr *>(expr);
+    if (is_multi_table) {
+      ss << field_expr->table_name() << ".";
+    }
+    ss << field_expr->field_name();
+  } else if (expr->type() == ExprType::VALUE) {
+    ValueExpr *val_expr = static_cast<ValueExpr *>(expr);
+    TupleCell cell;
+    val_expr->get_tuple_cell(cell);
+    cell.to_string(ss);
+  } else if (expr->type() == ExprType::AGGREGATE) {
+    AggregateExpr *aggr_expr = static_cast<AggregateExpr *>(expr);
+    ss << aggregate_func_string(aggr_expr->aggr_type()) << "(";
+    if (is_multi_table) {
+      ss << aggr_expr->table_name() << ".";
+    }
+    ss << aggr_expr->field_name() << ")";
+  } else if (expr->type() == ExprType::COMPOUND) {
+    CompoundExpr *compound_expr = static_cast<CompoundExpr *>(expr);
+    ss << compound_expr->get_show_name();
+  }
+  return ss.str();
+}
+
 void print_expr(Expression *expr, int level)
 {
   if (expr == nullptr) {
@@ -130,8 +161,8 @@ void print_expr(Expression *expr, int level)
     std::cout << ss.str() << std::endl;
   } else if (expr->type() == ExprType::AGGREGATE) {
     AggregateExpr *aggr_expr = static_cast<AggregateExpr *>(expr);
-    std::cout << aggregate_func_string(aggr_expr->aggr_type()) << "(" <<
-      (aggr_expr->is_star() ? "*" : aggr_expr->field_name()) << ")" << std::endl;
+    std::cout << aggregate_func_string(aggr_expr->aggr_type()) << "("
+            << aggr_expr->field_name() << ")" << std::endl;
   } else if (expr->type() == ExprType::COMPOUND) {
     CompoundExpr *compound_expr = static_cast<CompoundExpr *>(expr);
     std::cout << mathop_to_string(compound_expr->get_mathop()) << std::endl;

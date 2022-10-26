@@ -38,7 +38,8 @@ std::string ValueExpr::to_string() const
 
 RC AggregateExpr::get_value(const Tuple &tuple, TupleCell &cell)
 {
-  return tuple.find_cell(field_, cell);
+  cell = cell_;
+  return RC::SUCCESS;
 }
 
 RC CompoundExpr::get_value(const Tuple &tuple, TupleCell &cell)

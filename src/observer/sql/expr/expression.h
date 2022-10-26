@@ -114,6 +114,9 @@ public:
 
   const char *field_name() const
   {
+    if (is_star()) {
+      return "*";
+    }
     return field_.field_name();
   }
 
@@ -121,12 +124,17 @@ public:
   {
     return field_.meta() ==  nullptr;
   }
+  void set_cell(const TupleCell &cell)
+  {
+    cell_ = cell;
+  }
 
   RC get_value(const Tuple &tuple, TupleCell &cell) override;
 
 private:
   AggrType aggr_type_;
   Field field_;
+  TupleCell cell_;
 };
 
 class ValueExpr : public Expression {
