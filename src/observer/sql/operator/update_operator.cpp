@@ -3,6 +3,7 @@
 #include "sql/operator/update_operator.h"
 #include "sql/stmt/update_stmt.h"
 #include "storage/common/field_meta.h"
+#include "util/util.h"
 
 RC UpdateOperator::open() {
   if (children_.size() != 1) {
@@ -28,7 +29,8 @@ RC UpdateOperator::open() {
     RowTuple *row_tuple = static_cast<RowTuple *>(tuple);
     Record &record = row_tuple->record();
     char *record_data = record.data();
-    rc = update_data(record_data, update_stmt_->update_field_meta(), update_stmt_->update_value());
+    Value *update_val = update_stmt_->update_value();
+    rc = update_data(record_data, update_stmt_->update_field_meta(), *update_val);
     if (rc != RC::SUCCESS) {
       return rc;
     }
@@ -51,10 +53,10 @@ RC UpdateOperator::close() {
   return RC::SUCCESS;
 }
 
-RC UpdateOperator::update_data(char *data, const FieldMeta *meta, const Value &val) {
-  if (meta->type() != val.type) {
-    LOG_ERROR("update meta's type and val's type are not equal\n");
-    return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+RC UpdateOperator::update_data(char *data, const FieldMeta *meta, Value &val) {
+  RC rc;
+  if ((rc = try_to_cast_value(meta->type(), val)) != RC::SUCCESS) {
+    return rc;
   }
   if (meta->type() == CHARS) {
     int copy_len = strlen((char *)val.data);

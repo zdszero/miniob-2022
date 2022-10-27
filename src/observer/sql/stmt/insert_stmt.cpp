@@ -21,7 +21,6 @@ See the Mulan PSL v2 for more details. */
 #include "util/util.h"
 #include "util/ast_util.h"
 #include <cassert>
-#include <cmath>
 
 RC InsertStmt::create(Db *db, Inserts &inserts, Stmt *&stmt)
 {
@@ -68,64 +67,9 @@ RC InsertStmt::create(Db *db, Inserts &inserts, Stmt *&stmt)
       Value &value = inserts.pairs[i].exprs[j]->val;
       assert(value.type != DATES);
       assert(field_type != UNDEFINED);
-      if (field_type != value.type) {
-        switch (field_type) {
-          case INTS:
-            if (value.type == FLOATS) {
-              int int_val = std::round(*(float *)value.data);
-              value_destroy(&value);
-              value_init_integer(&value, int_val);
-            } else {
-              assert(value.type == CHARS);
-              int int_val = std::atoi((char *)value.data);
-              value_destroy(&value);
-              value_init_integer(&value, int_val);
-            }
-            break;
-          case FLOATS:
-            if (value.type == INTS) {
-              float float_val = static_cast<float>(*(int *)value.data);
-              value_destroy(&value);
-              value_init_float(&value, float_val);
-            } else {
-              assert(value.type == CHARS);
-              float float_val = std::atof((char *)value.data);
-              value_destroy(&value);
-              value_init_float(&value, float_val);
-            }
-            break;
-          case CHARS:
-            if (value.type == INTS) {
-              std::string s = std::to_string(*(int *)value.data);
-              value_destroy(&value);
-              value_init_string(&value, s.c_str());
-            } else {
-              assert(value.type == FLOATS);
-              std::string s = double2string(*(float *)value.data);
-              value_destroy(&value);
-              value_init_string(&value, s.c_str());
-            }
-            break;
-          case DATES:
-            if (value.type == CHARS) {
-              int32_t date = -1;
-              RC rc = string_to_date((char *)value.data, date);
-              if (rc != RC::SUCCESS) {
-                LOG_WARN("invalid date format\n");
-                return rc;
-              }
-              value_destroy(&value);
-              value_init_date(&value, date);
-            } else {
-              LOG_WARN("field type is not compatible. table=%s, field=%s, field type=%d, value.type=%d", 
-                       table_name, field_meta->name(), field_type, value.type);
-              return RC::SCHEMA_FIELD_TYPE_MISMATCH;
-            }
-            break;
-          default:
-            LOG_ERROR("unknown field type: %d\n", field_type);
-            return RC::INTERNAL;
-        }
+      RC rc;
+      if ((rc = try_to_cast_value(field_type, value)) != RC::SUCCESS) {
+        return rc;
       }
     }
   }

@@ -21,7 +21,6 @@ See the Mulan PSL v2 for more details. */
 #include "util/util.h"
 #include "util/ast_util.h"
 #include "util/check.h"
-#include <sstream>
 
 SelectStmt::~SelectStmt()
 {

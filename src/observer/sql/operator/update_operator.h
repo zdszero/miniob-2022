@@ -23,5 +23,5 @@ private:
   UpdateStmt *update_stmt_ = nullptr;
   Trx *trx_ = nullptr;
 
-  RC update_data(char *data, const FieldMeta *meta, const Value &val);
+  RC update_data(char *data, const FieldMeta *meta, Value &val);
 };

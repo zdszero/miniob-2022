@@ -35,12 +35,12 @@ public:
   Table *table() const { return table_; }
   FilterStmt *filter_stmt() const { return filter_stmt_; }
   const FieldMeta* update_field_meta() { return update_field_meta_; }
-  Value update_value() { return update_value_; }
+  Value* update_value() { return update_value_; }
 
 private:
   Table *table_ = nullptr;
   FilterStmt *filter_stmt_ = nullptr;
   const FieldMeta* update_field_meta_ = nullptr;
-  Value update_value_;
+  Value *update_value_;
 };
 

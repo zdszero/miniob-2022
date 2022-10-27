@@ -629,7 +629,7 @@ RC ExecuteStage::do_insert(SQLStageEvent *sql_event)
 
   RC rc = RC::SUCCESS;
   for (const std::vector<Value> &values : insert_stmt->value_pairs()) {
-    rc = table->insert_record(nullptr, insert_stmt->value_amount(), values.data());
+    rc = table->insert_record(trx, insert_stmt->value_amount(), values.data());
     if (rc == RC::SUCCESS) {
       if (!session->is_trx_multi_operation_mode()) {
         CLogRecord *clog_record = nullptr;

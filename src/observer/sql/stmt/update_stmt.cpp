@@ -66,7 +66,7 @@ RC UpdateStmt::create(Db *db, Updates &updates_sql, Stmt *&stmt)
   update_stmt->table_ = table;
   update_stmt->update_field_meta_ = field_meta;
   update_stmt->filter_stmt_ = filter_stmt;
-  update_stmt->update_value_ = updates_sql.expr->val;
+  update_stmt->update_value_ = &updates_sql.expr->val;
   stmt = update_stmt;
   return RC::SUCCESS;
 }

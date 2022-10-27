@@ -12,9 +12,12 @@ See the Mulan PSL v2 for more details. */
 // Created by wangyunlai on 2022/9/28
 //
 
+#include <cmath>
 #include <cstdio>
 #include <string.h>
 #include <sstream>
+#include "common/log/log.h"
+#include "util/date.h"
 #include "util/util.h"
 
 std::string double2string(double v)
@@ -161,12 +164,77 @@ void print_expr(Expression *expr, int level)
     std::cout << ss.str() << std::endl;
   } else if (expr->type() == ExprType::AGGREGATE) {
     AggregateExpr *aggr_expr = static_cast<AggregateExpr *>(expr);
-    std::cout << aggregate_func_string(aggr_expr->aggr_type()) << "("
-            << aggr_expr->field_name() << ")" << std::endl;
+    std::cout << aggregate_func_string(aggr_expr->aggr_type()) << "(" << aggr_expr->field_name() << ")" << std::endl;
   } else if (expr->type() == ExprType::COMPOUND) {
     CompoundExpr *compound_expr = static_cast<CompoundExpr *>(expr);
     std::cout << mathop_to_string(compound_expr->get_mathop()) << std::endl;
     print_expr(compound_expr->get_left_expr(), level + 1);
     print_expr(compound_expr->get_right_expr(), level + 1);
   }
+}
+
+RC try_to_cast_value(AttrType to_type, Value &value)
+{
+  if (value.type == to_type) {
+    return RC::SUCCESS;
+  }
+  switch (to_type) {
+    case INTS:
+      if (value.type == FLOATS) {
+        int int_val = std::round(*(float *)value.data);
+        value_destroy(&value);
+        value_init_integer(&value, int_val);
+      } else {
+        assert(value.type == CHARS);
+        int int_val = std::atoi((char *)value.data);
+        value_destroy(&value);
+        value_init_integer(&value, int_val);
+      }
+      break;
+    case FLOATS:
+      if (value.type == INTS) {
+        float float_val = static_cast<float>(*(int *)value.data);
+        value_destroy(&value);
+        value_init_float(&value, float_val);
+      } else {
+        assert(value.type == CHARS);
+        float float_val = std::atof((char *)value.data);
+        value_destroy(&value);
+        value_init_float(&value, float_val);
+      }
+      break;
+    case CHARS:
+      if (value.type == INTS) {
+        std::string s = std::to_string(*(int *)value.data);
+        value_destroy(&value);
+        value_init_string(&value, s.c_str());
+      } else {
+        assert(value.type == FLOATS);
+        std::string s = double2string(*(float *)value.data);
+        value_destroy(&value);
+        value_init_string(&value, s.c_str());
+      }
+      break;
+    case DATES:
+      if (value.type == CHARS) {
+        int32_t date = -1;
+        RC rc = string_to_date((char *)value.data, date);
+        if (rc != RC::SUCCESS) {
+          LOG_WARN("invalid date format\n");
+          return rc;
+        }
+        value_destroy(&value);
+        value_init_date(&value, date);
+      } else {
+        LOG_WARN("field type is not compatible. table=%s, field=%s, field type=%d, value.type=%d",
+            to_type,
+            value.type);
+        return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+      }
+      break;
+    default:
+      LOG_ERROR("unknown field type: %d\n", to_type);
+      return RC::INTERNAL;
+  }
+  return RC::SUCCESS;
 }
