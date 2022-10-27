@@ -20,7 +20,7 @@ See the Mulan PSL v2 for more details. */
 
 class BplusTreeIndex : public Index {
 public:
-  BplusTreeIndex() = default;
+  BplusTreeIndex(int unique=0): Index(unique) {}
   virtual ~BplusTreeIndex() noexcept;
 
   RC create(const char *file_name, const IndexMeta &index_meta, const FieldMeta &field_meta);

@@ -187,7 +187,9 @@ typedef struct {
 typedef struct {
   char *index_name;      // Index name
   char *relation_name;   // Relation name
-  char *attribute_name;  // Attribute name
+  int attribute_num;
+  int unique;
+  char *attribute_names[MAX_NUM];  // Attribute name
 } CreateIndex;
 
 typedef struct {
@@ -311,7 +313,8 @@ void drop_table_init(DropTable *drop_table, const char *relation_name);
 void drop_table_destroy(DropTable *drop_table);
 
 void create_index_init(
-    CreateIndex *create_index, const char *index_name, const char *relation_name, const char *attr_name);
+    CreateIndex *create_index, const char *index_name, const char *relation_name, int unique);
+void create_index_append_attributes(CreateIndex *create_index, const char *attr_name);
 void create_index_destroy(CreateIndex *create_index);
 
 void show_index_init(ShowIndex *show_index, const char *relation_name);

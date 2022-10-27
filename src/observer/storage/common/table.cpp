@@ -583,7 +583,7 @@ static RC insert_index_record_reader_adapter(Record *record, void *context)
 RC Table::show_index(std::stringstream &ss) {
   ss << "Table | Non_unique | Key_name | Seq_in_index | Column_name\n";
   for (Index *index : indexes_) {
-    ss << table_meta_.name() << " | " << 1 << " | "
+    ss << table_meta_.name() << " | " << !index->unique() << " | "
       << index->index_meta().name() << " | " << 1 << " | "
       << index->index_meta().field() << "\n";
   };
@@ -600,36 +600,46 @@ RC Table::drop_index(Trx *trx, const char *index_name) {
   return RC::GENERIC_ERROR;
 }
 
-RC Table::create_index(Trx *trx, const char *index_name, const char *attribute_name)
+RC Table::create_index(Trx *trx, const char *index_name, char * const attribute_name[], int attribute_num, int unique)
 {
-  if (common::is_blank(index_name) || common::is_blank(attribute_name)) {
+  if (common::is_blank(index_name)) {
     LOG_INFO("Invalid input arguments, table name is %s, index_name is blank or attribute_name is blank", name());
     return RC::INVALID_ARGUMENT;
   }
-  if (table_meta_.index(index_name) != nullptr || table_meta_.find_index_by_field((attribute_name))) {
+  for (int i = 0; i < attribute_num; i++) {
+    if (common::is_blank(attribute_name[i])) {
+      LOG_INFO("Invalid input arguments, table name is %s, index_name is blank or attribute_name is blank", name());
+      return RC::INVALID_ARGUMENT;
+    }
+  }
+  // duplicte index
+  if (table_meta_.index(index_name) != nullptr || table_meta_.find_index_by_fields(attribute_num, attribute_name)) {
     LOG_INFO("Invalid input arguments, table name is %s, index %s exist or attribute %s exist index",
              name(), index_name, attribute_name);
     return RC::SCHEMA_INDEX_EXIST;
   }
 
-  const FieldMeta *field_meta = table_meta_.field(attribute_name);
-  if (!field_meta) {
-    LOG_INFO("Invalid input arguments, there is no field of %s in table:%s.", attribute_name, name());
-    return RC::SCHEMA_FIELD_MISSING;
+  std::vector<const FieldMeta *> field_metas;
+  for (int i = 0; i < attribute_num; i++) {
+    const FieldMeta *field_meta = table_meta_.field(attribute_name[i]);
+    if (!field_meta) {
+      LOG_INFO("Invalid input arguments, there is no field of %s in table:%s.", attribute_name, name());
+      return RC::SCHEMA_FIELD_MISSING;
+    }
+    field_metas.push_back(field_meta);
   }
 
   IndexMeta new_index_meta;
-  RC rc = new_index_meta.init(index_name, *field_meta);
+  RC rc = new_index_meta.init(index_name, field_metas);
   if (rc != RC::SUCCESS) {
-    LOG_INFO("Failed to init IndexMeta in table:%s, index_name:%s, field_name:%s",
-             name(), index_name, attribute_name);
+    LOG_INFO("Failed to init IndexMeta in table:%s, index_name:%s", name(), index_name);
     return rc;
   }
 
   // 创建索引相关数据
-  BplusTreeIndex *index = new BplusTreeIndex();
+  BplusTreeIndex *index = new BplusTreeIndex(unique);
   std::string index_file = table_index_file(base_dir_.c_str(), name(), index_name);
-  rc = index->create(index_file.c_str(), new_index_meta, *field_meta);
+  rc = index->create(index_file.c_str(), new_index_meta, *(field_metas[0])); // fake
   if (rc != RC::SUCCESS) {
     delete index;
     LOG_ERROR("Failed to create bplus tree index. file name=%s, rc=%d:%s", index_file.c_str(), rc, strrc(rc));
@@ -843,6 +853,11 @@ RC Table::delete_entry_of_indexes(const char *record, const RID &rid, bool error
   for (Index *index : indexes_) {
     rc = index->delete_entry(record, &rid);
     if (rc != RC::SUCCESS) {
+      // the index might not be inserted if duplicate
+      if (rc == RC::RECORD_RECORD_NOT_EXIST) {
+        rc = RC::SUCCESS;
+        continue;
+      }
       if (rc != RC::RECORD_INVALID_KEY || !error_on_not_exists) {
         break;
       }

@@ -77,7 +77,7 @@ ParserContext *get_context(yyscan_t scanner)
 // keywords
 %token  CREATE DROP TABLE TABLES INDEX SELECT DESC SHOW SYNC INSERT DELETE
 				UPDATE TRX_BEGIN TRX_COMMIT TRX_ROLLBACK HELP EXIT INTO VALUES FROM
-				WHERE AND SET ON LOAD DATA INFILE INNER JOIN
+				WHERE AND SET ON LOAD DATA INFILE INNER JOIN UNIQUE
 // punctuations
 %token SEMICOLON DOT COMMA LBRACE RBRACE
 // types
@@ -203,12 +203,26 @@ desc_table:
     ;
 
 create_index:
-    CREATE INDEX ID ON ID LBRACE ID RBRACE SEMICOLON 
-		{
+    CREATE INDEX ID ON ID LBRACE index_id id_list RBRACE SEMICOLON {
 			CONTEXT->ssql->flag = SCF_CREATE_INDEX;//"create_index";
-			create_index_init(&CONTEXT->ssql->sstr.create_index, $3, $5, $7);
+			create_index_init(&CONTEXT->ssql->sstr.create_index, $3, $5, 0);
+		}
+		| CREATE UNIQUE INDEX ID ON ID LBRACE index_id RBRACE SEMICOLON {
+			CONTEXT->ssql->flag = SCF_CREATE_INDEX;//"create_index";
+			create_index_init(&CONTEXT->ssql->sstr.create_index, $4, $6, 1);
 		}
     ;
+
+index_id:
+		ID {
+			create_index_append_attributes(&CONTEXT->ssql->sstr.create_index, $1);
+		}
+		;
+
+id_list:
+		/* empty */
+		| COMMA index_id id_list
+		;
 
 drop_index:
     DROP INDEX ID  SEMICOLON 

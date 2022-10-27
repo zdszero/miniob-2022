@@ -94,6 +94,22 @@ RC BplusTreeIndex::drop() {
 
 RC BplusTreeIndex::insert_entry(const char *record, const RID *rid)
 {
+  if (unique_ == 1) {
+    RC rc;
+    RID unused_rid;
+    IndexScanner *scanner = create_scanner(
+      record + field_meta_.offset(), field_meta_.len(), true,
+      record + field_meta_.offset(), field_meta_.len(), true
+    );
+    if (scanner != nullptr) {
+      rc = scanner->next_entry(&unused_rid);
+      if (rc == RC::SUCCESS) {
+        scanner->destroy();
+        return RC::RECORD_DUPLICATE_KEY;
+      }
+      scanner->destroy();
+    }
+  }
   return index_handler_.insert_entry(record + field_meta_.offset(), rid);
 }
 
