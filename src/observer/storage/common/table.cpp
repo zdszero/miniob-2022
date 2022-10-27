@@ -583,9 +583,13 @@ static RC insert_index_record_reader_adapter(Record *record, void *context)
 RC Table::show_index(std::stringstream &ss) {
   ss << "Table | Non_unique | Key_name | Seq_in_index | Column_name\n";
   for (Index *index : indexes_) {
-    ss << table_meta_.name() << " | " << !index->unique() << " | "
-      << index->index_meta().name() << " | " << 1 << " | "
-      << index->index_meta().field() << "\n";
+    const IndexMeta& index_meta = index->index_meta();
+    int i = 1;
+    for (const auto &col : index_meta.fields()) {
+      ss << table_meta_.name() << " | " << !index->unique() << " | "
+        << index_meta.name() << " | " << i++ << " | "
+        << col << "\n";
+    }
   };
   return RC::SUCCESS;
 }
