@@ -207,7 +207,7 @@ create_index:
 			CONTEXT->ssql->flag = SCF_CREATE_INDEX;//"create_index";
 			create_index_init(&CONTEXT->ssql->sstr.create_index, $3, $5, 0);
 		}
-		| CREATE UNIQUE INDEX ID ON ID LBRACE index_id RBRACE SEMICOLON {
+		| CREATE UNIQUE INDEX ID ON ID LBRACE index_id id_list RBRACE SEMICOLON {
 			CONTEXT->ssql->flag = SCF_CREATE_INDEX;//"create_index";
 			create_index_init(&CONTEXT->ssql->sstr.create_index, $4, $6, 1);
 		}

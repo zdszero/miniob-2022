@@ -6,3 +6,8 @@ CREATE UNIQUE INDEX index_id on unique_table(id);
 INSERT INTO unique_table VALUES (3,2,1);
 INSERT INTO unique_table VALUES (1,2,1);
 SELECT * FROM unique_table;
+
+create table unique_table2(id1 int, id2 int, id3 int, id4 int);
+create unique index index_id on unique_table2(id1,id2);
+insert into unique_table2 values(2,2,1,1);
+insert into unique_table2 values(1,1,1,1);
