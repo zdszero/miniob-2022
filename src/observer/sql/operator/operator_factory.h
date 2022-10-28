@@ -1,21 +1,33 @@
 #pragma once
 
+#include "sql/operator/delete_operator.h"
 #include "sql/operator/join_operator.h"
-#include "sql/operator/multi_scan_operator.h"
 #include "sql/operator/operator.h"
+#include "sql/operator/multi_scan_operator.h"
 #include "sql/operator/project_operator.h"
 #include "sql/operator/aggregate_operator.h"
+#include "sql/operator/table_scan_operator.h"
+#include "sql/operator/update_operator.h"
+#include "sql/stmt/delete_stmt.h"
 #include "sql/stmt/select_stmt.h"
 #include "sql/stmt/stmt.h"
+#include "sql/stmt/update_stmt.h"
+#include "storage/trx/trx.h"
 
 class OperatorFactory {
 public:
-  static Operator *create(Stmt *stmt)
+  static Operator *create(Stmt *stmt, Trx *trx)
   {
     Operator *oper = nullptr;
     switch (stmt->type()) {
       case StmtType::SELECT:
-        oper = create_select_operator(stmt);
+        oper = create_select_operator(static_cast<SelectStmt *>(stmt), trx);
+        break;
+      case StmtType::UPDATE:
+        oper = create_update_operator(static_cast<UpdateStmt *>(stmt), trx);
+        break;
+      case StmtType::DELETE:
+        oper = create_delete_operator(static_cast<DeleteStmt *>(stmt), trx);
         break;
       default:
         LOG_ERROR("stmt type %s is unknown in OperatorFactory");
@@ -24,23 +36,14 @@ public:
     return oper;
   }
 
-  static void destory_operator(Operator *oper)
-  {
-    if (oper->children_.size() == 0) {
-      delete oper;
-      return;
-    }
-    for (Operator *child : oper->children_) {
-      destory_operator(child);
-    }
-    delete oper;
-  }
-
 private:
-  static Operator *create_select_operator(Stmt *stmt)
+  static Operator *create_select_operator(SelectStmt *select_stmt, Trx *trx)
   {
-    SelectStmt *select_stmt = static_cast<SelectStmt *>(stmt);
     Operator *scan_oper;
+    // Operator *scan_oper = try_to_create_index_scan_operator(select_stmt->filter_stmt());
+    // if (nullptr == scan_oper) {
+    //   scan_oper = new TableScanOperator(table);
+    // }
     if (select_stmt->join_stmts().empty()) {
       scan_oper = new NestedScanOperator(select_stmt->tables());
     } else {
@@ -63,5 +66,25 @@ private:
       aggregate_oper->add_child(pred_oper);
       return aggregate_oper;
     }
+  }
+
+  static Operator *create_update_operator(UpdateStmt *update_stmt, Trx *trx)
+  {
+    TableScanOperator *scan_oper = new TableScanOperator(update_stmt->table());
+    PredicateOperator *pred_oper = new PredicateOperator(update_stmt->filter_stmt());
+    pred_oper->add_child(scan_oper);
+    UpdateOperator *update_oper = new UpdateOperator(update_stmt, trx);
+    update_oper->add_child(pred_oper);
+    return update_oper;
+  }
+
+  static Operator *create_delete_operator(DeleteStmt *delete_stmt, Trx *trx)
+  {
+    TableScanOperator* scan_oper = new TableScanOperator(delete_stmt->table());
+    PredicateOperator* pred_oper = new PredicateOperator(delete_stmt->filter_stmt());
+    pred_oper->add_child(scan_oper);
+    DeleteOperator *delete_oper = new DeleteOperator(delete_stmt, trx);
+    delete_oper->add_child(pred_oper);
+    return delete_oper;
   }
 };

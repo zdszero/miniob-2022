@@ -133,11 +133,7 @@ class HashJoinOperator : public Operator {
 public:
   HashJoinOperator(Table *table, const std::vector<JoinStmt> &join_stmts) : table_(table), join_stmts_(join_stmts)
   {}
-  virtual ~HashJoinOperator() {
-    for (Operator *oper : children_) {
-      delete oper;
-    }
-  }
+  virtual ~HashJoinOperator() = default;
 
   RC open() override;
   RC next() override;

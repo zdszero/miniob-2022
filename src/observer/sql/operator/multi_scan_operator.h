@@ -67,12 +67,7 @@ class NestedScanOperator : public Operator {
 public:
   NestedScanOperator(const std::vector<Table *> &tables) : tables_(tables)
   {}
-  virtual ~NestedScanOperator()
-  {
-    for (Operator *oper : children_) {
-      delete oper;
-    }
-  }
+  virtual ~NestedScanOperator() = default;
 
   RC open() override;
   RC next() override;

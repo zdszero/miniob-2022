@@ -9,6 +9,7 @@ class UpdateOperator : public Operator {
 public:
   UpdateOperator(UpdateStmt *update_stmt, Trx *trx) : update_stmt_(update_stmt), trx_(trx)
   {}
+  ~UpdateOperator() = default;
 
   RC open() override;
   RC next() override;

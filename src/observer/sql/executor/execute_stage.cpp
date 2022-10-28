@@ -36,6 +36,7 @@ See the Mulan PSL v2 for more details. */
 #include "sql/operator/delete_operator.h"
 #include "sql/operator/project_operator.h"
 #include "sql/operator/update_operator.h"
+#include "sql/operator/operator_factory.h"
 #include "sql/stmt/stmt.h"
 #include "sql/stmt/select_stmt.h"
 #include "sql/stmt/update_stmt.h"
@@ -424,64 +425,39 @@ RC ExecuteStage::do_select(SQLStageEvent *sql_event)
 {
   SelectStmt *select_stmt = (SelectStmt *)(sql_event->stmt());
   SessionEvent *session_event = sql_event->session_event();
-  RC rc = RC::SUCCESS;
-  Operator *scan_oper;
-  if (select_stmt->join_stmts().empty()) {
-    scan_oper = new NestedScanOperator(select_stmt->tables());
-  } else {
-    scan_oper = new HashJoinOperator(select_stmt->tables()[0], select_stmt->join_stmts());
-  }
-
-  DEFER([&]() { delete scan_oper; });
-  // Operator *scan_oper = try_to_create_index_scan_operator(select_stmt->filter_stmt());
-  // if (nullptr == scan_oper) {
-  //   scan_oper = new TableScanOperator(table);
-  // }
-
-  PredicateOperator pred_oper(select_stmt->filter_stmt());
-  pred_oper.add_child(scan_oper);
-  if (select_stmt->select_attributes()) {
-    printf("use project operator\n");
-    ProjectOperator project_oper;
-    project_oper.add_child(&pred_oper);
-    for (Expression *expr : select_stmt->exprs()) {
-      project_oper.add_projection(expr, select_stmt->tables().size()>1);
-    }
-    rc = project_oper.open();
+  Operator *oper = OperatorFactory::create(select_stmt, nullptr);
+  DEFER([&]() { delete oper; });
+  RC rc;
+  if (oper->type() == OperatorType::PROJECT) {
+    ProjectOperator *project_oper = static_cast<ProjectOperator *>(oper);
+    rc = project_oper->open();
     if (rc != RC::SUCCESS) {
       LOG_WARN("failed to open operator");
       return rc;
     }
-
     std::stringstream ss;
-    print_tuple_header(ss, project_oper);
-    while ((rc = project_oper.next()) == RC::SUCCESS) {
-      // get current record
-      // write to response
-      Tuple * tuple = project_oper.current_tuple();
+    print_tuple_header(ss, *project_oper);
+    while ((rc = project_oper->next()) == RC::SUCCESS) {
+      Tuple * tuple = project_oper->current_tuple();
       if (nullptr == tuple) {
         rc = RC::INTERNAL;
         LOG_WARN("failed to get current record. rc=%s", strrc(rc));
         break;
       }
-
       tuple_to_string(ss, *tuple);
       ss << std::endl;
     }
-
     if (rc != RC::RECORD_EOF) {
       LOG_WARN("something wrong while iterate operator. rc=%s", strrc(rc));
-      project_oper.close();
+      project_oper->close();
     } else {
-      rc = project_oper.close();
+      rc = project_oper->close();
     }
 
     session_event->set_response(ss.str());
   } else {
-    printf("use aggregate operator\n");
-    AggregateOperator aggregate_oper(select_stmt->exprs());
-    aggregate_oper.add_child(&pred_oper);
-    RC rc = aggregate_oper.open();
+    AggregateOperator *aggregate_oper = static_cast<AggregateOperator *>(oper);
+    RC rc = aggregate_oper->open();
     if (rc != RC::SUCCESS) {
       LOG_ERROR("fail to execute aggregate operator\n");
       return rc;
@@ -489,7 +465,7 @@ RC ExecuteStage::do_select(SQLStageEvent *sql_event)
     std::stringstream ss;
     print_aggregate_header(ss, select_stmt);
     bool first = true;
-    for (const std::string &res : aggregate_oper.results()) {
+    for (const std::string &res : aggregate_oper->results()) {
       if (!first) {
         ss << " | ";
       }
@@ -669,14 +645,9 @@ RC ExecuteStage::do_update(SQLStageEvent *sql_event)
     return RC::GENERIC_ERROR;
   }
 
-  UpdateStmt *update_stmt = (UpdateStmt *)stmt;
-  TableScanOperator scan_oper(update_stmt->table());
-  PredicateOperator pred_oper(update_stmt->filter_stmt());
-  pred_oper.add_child(&scan_oper);
-  UpdateOperator update_oper(update_stmt, trx);
-  update_oper.add_child(&pred_oper);
-
-  RC rc = update_oper.open();
+  auto *update_oper = static_cast<UpdateOperator *>(OperatorFactory::create(stmt, trx));
+  DEFER([update_oper](){ delete update_oper; });
+  RC rc = update_oper->open();
   if (rc != RC::SUCCESS) {
     session_event->set_response("FAILURE\n");
   } else {
@@ -700,14 +671,10 @@ RC ExecuteStage::do_delete(SQLStageEvent *sql_event)
     return RC::GENERIC_ERROR;
   }
 
-  DeleteStmt *delete_stmt = (DeleteStmt *)stmt;
-  TableScanOperator scan_oper(delete_stmt->table());
-  PredicateOperator pred_oper(delete_stmt->filter_stmt());
-  pred_oper.add_child(&scan_oper);
-  DeleteOperator delete_oper(delete_stmt, trx);
-  delete_oper.add_child(&pred_oper);
+  auto *delete_oper = static_cast<DeleteOperator *>(OperatorFactory::create(stmt, trx));
+  RC rc = delete_oper->open();
+  DEFER([delete_oper]() { delete delete_oper; });
 
-  RC rc = delete_oper.open();
   if (rc != RC::SUCCESS) {
     session_event->set_response("FAILURE\n");
   } else {

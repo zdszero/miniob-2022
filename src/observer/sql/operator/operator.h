@@ -39,10 +39,13 @@ class Operator
 {
   friend class OperatorFactory;
 public:
-  Operator()
-  {}
-
-  virtual ~Operator() = default;
+  Operator() = default;
+  // only add child by new()
+  virtual ~Operator() {
+    for (Operator *oper : children_) {
+      delete oper;
+    }
+  }
 
   virtual RC open() = 0;
   virtual RC next() = 0;

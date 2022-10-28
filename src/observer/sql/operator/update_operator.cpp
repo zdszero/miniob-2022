@@ -33,8 +33,8 @@ RC UpdateOperator::open() {
     auto &unit = update_stmt_->units()[pair_num];
     if (unit.is_select) {
       SelectStmt *select_stmt = unit.select_stmt;
-      Operator *oper = OperatorFactory::create(select_stmt);
-      DEFER([oper](){ OperatorFactory::destory_operator(oper); });
+      Operator *oper = OperatorFactory::create(select_stmt, nullptr);
+      DEFER([oper](){ delete oper; });
       if (oper->type() == OperatorType::AGGREGATE) {
         AggregateOperator *aggr_oper = static_cast<AggregateOperator *>(oper);
         aggr_oper->open();
