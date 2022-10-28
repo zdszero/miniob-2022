@@ -132,8 +132,23 @@ int TupleCell::compare(const TupleCell &other) const
 Value TupleCell::to_value() const
 {
   Value val;
-  val.type = attr_type_;
-  val.data = data_;
+  switch (attr_type_) {
+    case INTS:
+      value_init_integer(&val, *(int *)data_);
+      break;
+    case FLOATS:
+      value_init_float(&val, *(float *)data_);
+      break;
+    case CHARS:
+      value_init_string(&val, data_);
+      break;
+    case DATES:
+      value_init_date(&val, *(int32_t *)data_);
+      break;
+    default:
+      LOG_ERROR("unknown attribute type in TupleCell::to_value()");
+      break;
+  }
   return val;
 }
 

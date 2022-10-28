@@ -22,6 +22,14 @@ RC UpdateOperator::open() {
 
   std::vector<Value> update_vals(update_stmt_->units().size());
   for (size_t pair_num = 0; pair_num < update_stmt_->units().size(); pair_num++) {
+    value_init_null(&update_vals[pair_num]);
+  }
+  DEFER([&update_vals]() {
+    for (auto &val : update_vals) {
+      value_destroy(&val);
+    }
+  });
+  for (size_t pair_num = 0; pair_num < update_stmt_->units().size(); pair_num++) {
     auto &unit = update_stmt_->units()[pair_num];
     if (unit.is_select) {
       SelectStmt *select_stmt = unit.select_stmt;
