@@ -78,6 +78,10 @@ public:
   RC next() override;
   RC close() override;
   Tuple *current_tuple() override;
+  OperatorType type() override
+  {
+    return OperatorType::NESTED_SCAN;
+  }
 
 private:
   std::vector<Table *> tables_;

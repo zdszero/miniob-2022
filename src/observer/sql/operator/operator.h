@@ -18,11 +18,26 @@ See the Mulan PSL v2 for more details. */
 #include "rc.h"
 #include "sql/expr/tuple.h"
 
+enum class OperatorType
+{
+  AGGREGATE,
+  DELETE,
+  INDEX_SCAN,
+  INSERT,
+  JOIN,
+  NESTED_SCAN,
+  PREDICATE,
+  PROJECT,
+  TABLE_SCAN,
+  UPDATE
+};
+
 class Record;
 class TupleCellSpec;
 
 class Operator
 {
+  friend class OperatorFactory;
 public:
   Operator()
   {}
@@ -32,8 +47,8 @@ public:
   virtual RC open() = 0;
   virtual RC next() = 0;
   virtual RC close() = 0;
-
   virtual Tuple * current_tuple() = 0;
+  virtual OperatorType type() = 0;
   //virtual int tuple_cell_num() const = 0;
   //virtual RC  tuple_cell_spec_at(int index, TupleCellSpec *&spec) const = 0;
 

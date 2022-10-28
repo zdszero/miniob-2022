@@ -143,6 +143,10 @@ public:
   RC next() override;
   RC close() override;
   Tuple *current_tuple() override;
+  OperatorType type() override
+  {
+    return OperatorType::JOIN;
+  }
 
 private:
   Table *table_;

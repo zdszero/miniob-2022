@@ -42,12 +42,7 @@ typedef enum {
   NO_OP
 } CompOp;
 
-typedef enum {
-  MATH_ADD,
-  MATH_SUB,
-  MATH_MUL,
-  MATH_DIV
-} MathOp;
+typedef enum { MATH_ADD, MATH_SUB, MATH_MUL, MATH_DIV } MathOp;
 
 //属性值类型
 typedef enum {
@@ -96,7 +91,6 @@ typedef struct _Aggregate {
   RelAttr attr;
 } Aggregate;
 
-
 typedef struct ast {
   NodeType nodetype;
   union {
@@ -113,10 +107,16 @@ typedef struct ast {
   int r_brace;
 } ast;
 
+struct _Selects;
+
 typedef struct _Condition {
   CompOp comp;
   ast *left_ast;
   ast *right_ast;
+  int left_is_select;
+  int right_is_select;
+  struct _Selects *left_select;
+  struct _Selects *right_select;
 } Condition;
 
 typedef struct _JoinConditon {
@@ -126,7 +126,7 @@ typedef struct _JoinConditon {
 } Join;
 
 // struct of select
-typedef struct {
+typedef struct _Selects {
   size_t relation_num;            // Length of relations in Fro clause
   char *relations[MAX_NUM];       // relations in From clause
   size_t condition_num;           // Length of conditions in Where clause
@@ -138,13 +138,13 @@ typedef struct {
 } Selects;
 
 typedef struct {
-  size_t expr_num;       // Length of values
+  size_t expr_num;      // Length of values
   ast *exprs[MAX_NUM];  // values to insert
 } InsertPair;
 
 // struct of insert
 typedef struct {
-  char *relation_name;    // Relation to insert into
+  char *relation_name;  // Relation to insert into
   size_t pair_num;
   InsertPair pairs[MAX_NUM];
 } Inserts;
@@ -158,8 +158,10 @@ typedef struct {
 
 // struct of update
 typedef struct {
-  char *relation_name;            // Relation to update
-  char *attribute_name;           // Attribute to update
+  char *relation_name;   // Relation to update
+  char *attribute_name;  // Attribute to update
+  int is_select;
+  struct _Selects *select;
   ast *expr;
   size_t condition_num;           // Length of conditions in Where clause
   Condition conditions[MAX_NUM];  // conditions in Where clause
@@ -185,8 +187,8 @@ typedef struct {
 
 // struct of create_index
 typedef struct {
-  char *index_name;      // Index name
-  char *relation_name;   // Relation name
+  char *index_name;     // Index name
+  char *relation_name;  // Relation name
   int attribute_num;
   int unique;
   char *attribute_names[MAX_NUM];  // Attribute name
@@ -264,7 +266,8 @@ ast *new_aggr_node(Aggregate *aggr);
 ast *new_op_node(MathOp mathop, ast *l, ast *r);
 void node_destroy(ast *n);
 
-void condition_init(Condition *condition, CompOp comp, ast *l, ast *r);
+void condition_init(Condition *condition, CompOp comp, int left_is_select, ast *l, Selects *left_select,
+    int right_is_select, ast *r, Selects *right_select);
 void condition_destroy(Condition *condition);
 
 void relation_attr_init(RelAttr *relation_attr, const char *relation_name, const char *attribute_name);
@@ -287,13 +290,14 @@ void attr_info_init(AttrInfo *attr_info, const char *name, AttrType type, size_t
 void attr_info_destroy(AttrInfo *attr_info);
 
 void selects_init(Selects *selects, ...);
-void select_append_exprs(Selects *selects, ast* exprs[], size_t expr_num);
+void selects_clear(Selects *selects);
+void select_append_exprs(Selects *selects, ast *exprs[], size_t expr_num);
 void selects_append_relation(Selects *selects, const char *relation_name);
 void selects_append_conditions(Selects *selects, Condition conditions[], size_t condition_num);
 void select_append_joins(Selects *selects, Join joins[], size_t join_num);
 void selects_destroy(Selects *selects);
 
-void insert_append_exprs(Inserts *inserts, ast* exprs[], size_t expr_num);
+void insert_append_exprs(Inserts *inserts, ast *exprs[], size_t expr_num);
 void inserts_init(Inserts *inserts, const char *relation_name);
 void inserts_destroy(Inserts *inserts);
 
@@ -301,8 +305,8 @@ void deletes_init_relation(Deletes *deletes, const char *relation_name);
 void deletes_set_conditions(Deletes *deletes, Condition conditions[], size_t condition_num);
 void deletes_destroy(Deletes *deletes);
 
-void updates_init(Updates *updates, const char *relation_name, const char *attribute_name, ast *expr,
-    Condition conditions[], size_t condition_num);
+void updates_init(Updates *updates, const char *relation_name, const char *attribute_name, int is_select,
+    Selects *select, ast *expr, Condition conditions[], size_t condition_num);
 void updates_destroy(Updates *updates);
 
 void create_table_append_attribute(CreateTable *create_table, AttrInfo *attr_info);
@@ -312,8 +316,7 @@ void create_table_destroy(CreateTable *create_table);
 void drop_table_init(DropTable *drop_table, const char *relation_name);
 void drop_table_destroy(DropTable *drop_table);
 
-void create_index_init(
-    CreateIndex *create_index, const char *index_name, const char *relation_name, int unique);
+void create_index_init(CreateIndex *create_index, const char *index_name, const char *relation_name, int unique);
 void create_index_append_attributes(CreateIndex *create_index, const char *attr_name);
 void create_index_destroy(CreateIndex *create_index);
 

@@ -10,28 +10,36 @@
 #include<stdlib.h>
 #include<string.h>
 
+#define CUR_SEL CONTEXT->select_length-1
+
 typedef struct ParserContext {
   Query * ssql;
-  size_t select_length;
-  size_t from_length;
+
+  size_t from_length[MAX_NUM];
 	char id[MAX_NUM];
 
+  size_t select_length;
+	Selects selects[MAX_NUM];
+	Selects left_sub_select;
+	Selects right_sub_select;
+	Selects update_select;
+
 	// conditions
-  size_t condition_length;
-  Condition conditions[MAX_NUM];
+  size_t condition_length[MAX_NUM];
+  Condition conditions[MAX_NUM][MAX_NUM];
 
 	// join
-	size_t join_condition_length;
-	Condition join_conditions[MAX_NUM];
-	size_t join_length;
-	Join joins[MAX_NUM];
+	size_t join_condition_length[MAX];
+	Condition join_conditions[MAX_NUM][MAX_NUM];
+	size_t join_length[MAX_NUM];
+	Join joins[MAX_NUM][MAX_NUM];
 
 	// expressions
-	size_t expr_length;
-	ast* exprs[MAX_NUM];
-	AggrType aggr_type;
+	size_t expr_length[MAX_NUM];
+	ast* exprs[MAX_NUM][MAX_NUM];
+	AggrType aggr_type[MAX_NUM];
 
-  CompOp comp;
+  CompOp comp[MAX_NUM];
 } ParserContext;
 
 //获取子串
@@ -51,11 +59,11 @@ void yyerror(yyscan_t scanner, const char *str)
   ParserContext *context = (ParserContext *)(yyget_extra(scanner));
   query_reset(context->ssql);
   context->ssql->flag = SCF_ERROR;
-  context->condition_length = 0;
-	context->join_condition_length = 0;
-	context->join_length = 0;
-	context->expr_length = 0;
-  context->from_length = 0;
+  context->condition_length[0] = 0;
+	context->join_condition_length[0] = 0;
+	context->join_length[0] = 0;
+	context->expr_length[0] = 0;
+  context->from_length[0] = 0;
   context->select_length = 0;
   context->ssql->sstr.insertion.pair_num = 0;
   printf("parse sql failed. error=%s", str);
@@ -112,8 +120,8 @@ ParserContext *get_context(yyscan_t scanner)
 // nonterminals
 %type <number> type;
 %type <condition1> condition;
-%type <value1> value;
 %type <number> number;
+%type <ast1> value;
 %type <ast1> exp;
 %type <ast1> aggr_func;
 
@@ -289,14 +297,14 @@ insert:
 
 insert_pair:
 		LBRACE insert_expr insert_expr_list RBRACE {
-			insert_append_exprs(&CONTEXT->ssql->sstr.insertion, CONTEXT->exprs, CONTEXT->expr_length);
-			CONTEXT->expr_length = 0;
+			insert_append_exprs(&CONTEXT->ssql->sstr.insertion, CONTEXT->exprs[CUR_SEL], CONTEXT->expr_length[CUR_SEL]);
+			CONTEXT->expr_length[CUR_SEL] = 0;
 		}
 		;
 
 insert_expr:
 		exp {
-			CONTEXT->exprs[CONTEXT->expr_length++] = $1;
+			CONTEXT->exprs[CUR_SEL][CONTEXT->expr_length[CUR_SEL]++] = $1;
 		}
 		;
 
@@ -334,46 +342,60 @@ delete:
 			CONTEXT->ssql->flag = SCF_DELETE;//"delete";
 			deletes_init_relation(&CONTEXT->ssql->sstr.deletion, $3);
 			deletes_set_conditions(&CONTEXT->ssql->sstr.deletion, 
-					CONTEXT->conditions, CONTEXT->condition_length);
-			CONTEXT->condition_length = 0;	
+					CONTEXT->conditions[CUR_SEL], CONTEXT->condition_length[CUR_SEL]);
+			CONTEXT->condition_length[CUR_SEL] = 0;	
     }
     ;
+
 update:
-    UPDATE ID SET ID EQ value where SEMICOLON
-		{
+    UPDATE ID SET ID EQ exp where SEMICOLON {
 			CONTEXT->ssql->flag = SCF_UPDATE;//"update";
-			updates_init(&CONTEXT->ssql->sstr.update, $2, $4, $6, 
-					CONTEXT->conditions, CONTEXT->condition_length);
-			CONTEXT->condition_length = 0;
+			updates_init(&CONTEXT->ssql->sstr.update, $2, $4, 0, NULL, $6, 
+					CONTEXT->conditions[CUR_SEL], CONTEXT->condition_length[CUR_SEL]);
+			CONTEXT->condition_length[CUR_SEL] = 0;
+		}
+		| UPDATE ID SET ID EQ update_select where SEMICOLON {
+			CONTEXT->ssql->flag = SCF_UPDATE;//"update";
+			updates_init(&CONTEXT->ssql->sstr.update, $2, $4, 1, &CONTEXT->update_select, NULL,
+					CONTEXT->conditions[CUR_SEL], CONTEXT->condition_length[CUR_SEL]);
+			CONTEXT->condition_length[CUR_SEL] = 0;
 		}
     ;
+
 select:
-    SELECT select_expr select_exprs FROM ID rel_list inner_join_list where SEMICOLON
+		select_body SEMICOLON {
+			CONTEXT->ssql->sstr.selection = CONTEXT->selects[CUR_SEL];
+			selects_clear(&CONTEXT->selects[CUR_SEL]);
+			CONTEXT->select_length--;
+		}
+		;
+
+select_body:
+    begin_select select_expr select_exprs FROM ID rel_list inner_join_list where
 		{
 			CONTEXT->ssql->flag=SCF_SELECT;//"select";
 
-			selects_append_relation(&CONTEXT->ssql->sstr.selection, $5);
-			selects_append_conditions(&CONTEXT->ssql->sstr.selection, CONTEXT->conditions, CONTEXT->condition_length);
-			select_append_joins(&CONTEXT->ssql->sstr.selection, CONTEXT->joins, CONTEXT->join_length);
-			select_append_exprs(&CONTEXT->ssql->sstr.selection, CONTEXT->exprs, CONTEXT->expr_length);
-
-			CONTEXT->condition_length=0;
-			CONTEXT->join_condition_length=0;
-			CONTEXT->join_length=0;
-			CONTEXT->from_length=0;
-			CONTEXT->select_length=0;
-			CONTEXT->expr_length=0;
+			selects_append_relation(&CONTEXT->selects[CUR_SEL], $5);
+			selects_append_conditions(&CONTEXT->selects[CUR_SEL], CONTEXT->conditions[CUR_SEL], CONTEXT->condition_length[CUR_SEL]);
+			select_append_joins(&CONTEXT->selects[CUR_SEL], CONTEXT->joins[CUR_SEL], CONTEXT->join_length[CUR_SEL]);
+			select_append_exprs(&CONTEXT->selects[CUR_SEL], CONTEXT->exprs[CUR_SEL], CONTEXT->expr_length[CUR_SEL]);
 	}
 	;
+
+begin_select:
+		SELECT {
+			CONTEXT->select_length++;
+		}
+		;
 
 select_expr:
 	STAR {
 		RelAttr attr;
 		relation_attr_init(&attr, NULL, "*");
-		CONTEXT->exprs[CONTEXT->expr_length++] = new_attr_node(&attr);
+		CONTEXT->exprs[CUR_SEL][CONTEXT->expr_length[CUR_SEL]++] = new_attr_node(&attr);
 	}
 	| exp {
-		CONTEXT->exprs[CONTEXT->expr_length++] = $1;
+		CONTEXT->exprs[CUR_SEL][CONTEXT->expr_length[CUR_SEL]++] = $1;
 	}
 	;
 
@@ -387,37 +409,37 @@ aggr_func:
 			RelAttr attr;
 			relation_attr_init(&attr, NULL, $3);
 			Aggregate aggr;
-			aggregate_init(&aggr, CONTEXT->aggr_type, 1, &attr, NULL);
+			aggregate_init(&aggr, CONTEXT->aggr_type[CUR_SEL], 1, &attr, NULL);
 			$$ = new_aggr_node(&aggr);
 		}
 		| aggr_type LBRACE ID DOT ID RBRACE {
 			RelAttr attr;
 			relation_attr_init(&attr, $3, $5);
 			Aggregate aggr;
-			aggregate_init(&aggr, CONTEXT->aggr_type, 1, &attr, NULL);
+			aggregate_init(&aggr, CONTEXT->aggr_type[CUR_SEL], 1, &attr, NULL);
 			$$ = new_aggr_node(&aggr);
 		}
 		| aggr_type LBRACE STAR RBRACE {
 			RelAttr attr;
 			relation_attr_init(&attr, NULL, "*");
 			Aggregate aggr;
-			aggregate_init(&aggr, CONTEXT->aggr_type, 1, &attr, NULL);
+			aggregate_init(&aggr, CONTEXT->aggr_type[CUR_SEL], 1, &attr, NULL);
 			$$ = new_aggr_node(&aggr);
 		}
 		;
 
 aggr_type:
-		MAX     { CONTEXT->aggr_type = MAXS; }
-		| MIN   { CONTEXT->aggr_type = MINS; }
-		| AVG   { CONTEXT->aggr_type = AVGS; }
-		| SUM   { CONTEXT->aggr_type = SUMS; }
-		| COUNT { CONTEXT->aggr_type = COUNTS; }
+		MAX     { CONTEXT->aggr_type[CUR_SEL] = MAXS; }
+		| MIN   { CONTEXT->aggr_type[CUR_SEL] = MINS; }
+		| AVG   { CONTEXT->aggr_type[CUR_SEL] = AVGS; }
+		| SUM   { CONTEXT->aggr_type[CUR_SEL] = SUMS; }
+		| COUNT { CONTEXT->aggr_type[CUR_SEL] = COUNTS; }
 		;
 
 rel_list:
     /* empty */
     | COMMA ID rel_list {	
-			selects_append_relation(&CONTEXT->ssql->sstr.selection, $2);
+			selects_append_relation(&CONTEXT->selects[CUR_SEL], $2);
 		}
     ;
 
@@ -429,9 +451,9 @@ inner_join_list:
 inner_join:
 		INNER JOIN ID ON join_condition join_condition_list {
 			Join join;
-			join_init(&join, $3, CONTEXT->join_conditions, CONTEXT->join_condition_length);
-			CONTEXT->joins[CONTEXT->join_length++] = join;
-			CONTEXT->join_condition_length = 0;
+			join_init(&join, $3, CONTEXT->join_conditions[CUR_SEL], CONTEXT->join_condition_length[CUR_SEL]);
+			CONTEXT->joins[CUR_SEL][CONTEXT->join_length[CUR_SEL]++] = join;
+			CONTEXT->join_condition_length[CUR_SEL] = 0;
 		}
 		;
 
@@ -443,8 +465,23 @@ join_condition_list:
 join_condition:
 		exp comOp exp {
 			Condition condition;
-			condition_init(&condition, CONTEXT->comp, $1, $3);
-			CONTEXT->join_conditions[CONTEXT->join_condition_length++] = condition;
+			condition_init(&condition, CONTEXT->comp[CUR_SEL], 0, $1, NULL, 0, $3, NULL);
+			CONTEXT->join_conditions[CUR_SEL][CONTEXT->join_condition_length[CUR_SEL]++] = condition;
+		}
+		| exp comOp right_sub_select {
+			Condition condition;
+			condition_init(&condition, CONTEXT->comp[CUR_SEL], 0, $1, NULL, 0, NULL, &CONTEXT->right_sub_select);
+			CONTEXT->join_conditions[CUR_SEL][CONTEXT->condition_length[CUR_SEL]++] = condition;
+		}
+		| left_sub_select comOp exp {
+			Condition condition;
+			condition_init(&condition, CONTEXT->comp[CUR_SEL], 0, NULL, &CONTEXT->left_sub_select, 0, $3, NULL);
+			CONTEXT->join_conditions[CUR_SEL][CONTEXT->condition_length[CUR_SEL]++] = condition;
+		}
+		| left_sub_select comOp right_sub_select {
+			Condition condition;
+			condition_init(&condition, CONTEXT->comp[CUR_SEL], 0, NULL, &CONTEXT->left_sub_select, 0, NULL, &CONTEXT->right_sub_select);
+			CONTEXT->join_conditions[CUR_SEL][CONTEXT->condition_length[CUR_SEL]++] = condition;
 		}
 		;
 
@@ -459,10 +496,49 @@ condition_list:
 condition:
 		exp comOp exp {
 			Condition condition;
-			condition_init(&condition, CONTEXT->comp, $1, $3);
-			CONTEXT->conditions[CONTEXT->condition_length++] = condition;
+			condition_init(&condition, CONTEXT->comp[CUR_SEL], 0, $1, NULL, 0, $3, NULL);
+			CONTEXT->conditions[CUR_SEL][CONTEXT->condition_length[CUR_SEL]++] = condition;
+		}
+		| exp comOp right_sub_select {
+			Condition condition;
+			condition_init(&condition, CONTEXT->comp[CUR_SEL], 0, $1, NULL, 0, NULL, &CONTEXT->right_sub_select);
+			CONTEXT->conditions[CUR_SEL][CONTEXT->condition_length[CUR_SEL]++] = condition;
+		}
+		| left_sub_select comOp exp {
+			Condition condition;
+			condition_init(&condition, CONTEXT->comp[CUR_SEL], 0, NULL, &CONTEXT->left_sub_select, 0, $3, NULL);
+			CONTEXT->conditions[CUR_SEL][CONTEXT->condition_length[CUR_SEL]++] = condition;
+		}
+		| left_sub_select comOp right_sub_select {
+			Condition condition;
+			condition_init(&condition, CONTEXT->comp[CUR_SEL], 0, NULL, &CONTEXT->left_sub_select, 0, NULL, &CONTEXT->right_sub_select);
+			CONTEXT->conditions[CUR_SEL][CONTEXT->condition_length[CUR_SEL]++] = condition;
 		}
     ;
+
+update_select:
+		LBRACE select_body RBRACE {
+			CONTEXT->update_select = CONTEXT->selects[CUR_SEL];
+			selects_clear(&CONTEXT->selects[CUR_SEL]);
+			CONTEXT->select_length--;
+		}
+		;
+
+left_sub_select:
+		LBRACE select_body RBRACE {
+			CONTEXT->left_sub_select = CONTEXT->selects[CUR_SEL];
+			selects_clear(&CONTEXT->selects[CUR_SEL]);
+			CONTEXT->select_length--;
+		}
+		;
+
+right_sub_select:
+		LBRACE select_body RBRACE {
+			CONTEXT->right_sub_select = CONTEXT->selects[CUR_SEL];
+			selects_clear(&CONTEXT->selects[CUR_SEL]);
+			CONTEXT->select_length--;
+		}
+		;
 
 exp :
 		MINUS exp {
@@ -504,14 +580,14 @@ exp :
 		;
 
 comOp:
-  	  EQ { CONTEXT->comp = EQUAL_TO; }
-    | LT { CONTEXT->comp = LESS_THAN; }
-    | GT { CONTEXT->comp = GREAT_THAN; }
-    | LE { CONTEXT->comp = LESS_EQUAL; }
-    | GE { CONTEXT->comp = GREAT_EQUAL; }
-    | NE { CONTEXT->comp = NOT_EQUAL; }
-		| LIKE { CONTEXT->comp = STR_LIKE; }
-		| NOT LIKE { CONTEXT->comp = STR_NOT_LIKE; }
+  	  EQ { CONTEXT->comp[CUR_SEL] = EQUAL_TO; }
+    | LT { CONTEXT->comp[CUR_SEL] = LESS_THAN; }
+    | GT { CONTEXT->comp[CUR_SEL] = GREAT_THAN; }
+    | LE { CONTEXT->comp[CUR_SEL] = LESS_EQUAL; }
+    | GE { CONTEXT->comp[CUR_SEL] = GREAT_EQUAL; }
+    | NE { CONTEXT->comp[CUR_SEL] = NOT_EQUAL; }
+		| LIKE { CONTEXT->comp[CUR_SEL] = STR_LIKE; }
+		| NOT LIKE { CONTEXT->comp[CUR_SEL] = STR_NOT_LIKE; }
     ;
 
 load_data:

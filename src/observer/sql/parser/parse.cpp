@@ -91,20 +91,51 @@ void node_destroy(ast *n)
   }
 }
 
-void condition_init(Condition *condition, CompOp comp, ast *l, ast *r)
+void condition_init(Condition *condition, CompOp comp, int left_is_select, ast *l, Selects *left_select,
+    int right_is_select, ast *r, Selects *right_select)
 {
   condition->comp = comp;
-  condition->left_ast = l;
-  condition->right_ast = r;
+  condition->left_is_select = left_is_select;
+  condition->right_is_select = right_is_select;
+  if (left_is_select) {
+    assert(left_select != NULL);
+    condition->left_select = new Selects();
+    *condition->left_select = *left_select;
+    condition->left_ast = NULL;
+  } else {
+    assert(l != NULL);
+    condition->left_select = NULL;
+    condition->left_ast = l;
+  }
+  if (right_is_select) {
+    assert(right_select != NULL);
+    condition->right_select = new Selects();
+    *condition->right_select = *right_select;
+    condition->right_ast = NULL;
+  } else {
+    assert(r != NULL);
+    condition->right_select = NULL;
+    condition->right_ast = r;
+  }
 }
 
 void condition_destroy(Condition *condition)
 {
   assert(condition->left_ast && condition->right_ast);
-  node_destroy(condition->left_ast);
-  node_destroy(condition->right_ast);
+  if (condition->left_is_select) {
+    selects_destroy(condition->left_select);
+  } else {
+    node_destroy(condition->left_ast);
+  }
+  if (condition->right_is_select) {
+    selects_destroy(condition->right_select);
+  } else {
+    node_destroy(condition->right_ast);
+  }
   condition->left_ast = NULL;
   condition->right_ast = NULL;
+  condition->left_select = NULL;
+  condition->right_select = NULL;
 }
 
 void relation_attr_init(RelAttr *relation_attr, const char *relation_name, const char *attribute_name)
@@ -210,6 +241,11 @@ void attr_info_destroy(AttrInfo *attr_info)
 }
 
 void selects_init(Selects *selects, ...);
+
+void selects_clear(Selects *selects)
+{
+  memset((void *)selects, 0, sizeof(Selects));
+}
 
 void select_append_exprs(Selects *selects, ast* exprs[], size_t expr_num)
 {
@@ -317,12 +353,22 @@ void deletes_destroy(Deletes *deletes)
   deletes->relation_name = nullptr;
 }
 
-void updates_init(Updates *updates, const char *relation_name, const char *attribute_name, ast *expr,
-    Condition conditions[], size_t condition_num)
+void updates_init(Updates *updates, const char *relation_name, const char *attribute_name, int is_select,
+    Selects *select, ast *expr, Condition conditions[], size_t condition_num)
 {
   updates->relation_name = strdup(relation_name);
   updates->attribute_name = strdup(attribute_name);
-  updates->expr = expr;
+  if (is_select) {
+    assert(expr == NULL);
+    updates->expr = NULL;
+    updates->select = new Selects();
+    *updates->select = *select;
+  } else {
+    assert(select == NULL);
+    updates->select = NULL;
+    updates->expr = expr;
+  }
+  updates->is_select = is_select;
 
   assert(condition_num <= sizeof(updates->conditions) / sizeof(updates->conditions[0]));
   for (size_t i = 0; i < condition_num; i++) {
@@ -331,6 +377,7 @@ void updates_init(Updates *updates, const char *relation_name, const char *attri
   updates->condition_num = condition_num;
 }
 
+
 void updates_destroy(Updates *updates)
 {
   free(updates->relation_name);
@@ -338,7 +385,11 @@ void updates_destroy(Updates *updates)
   updates->relation_name = nullptr;
   updates->attribute_name = nullptr;
 
-  node_destroy(updates->expr);
+  if (updates->is_select) {
+    selects_destroy(updates->select);
+  } else {
+    node_destroy(updates->expr);
+  }
 
   for (size_t i = 0; i < updates->condition_num; i++) {
     condition_destroy(&updates->conditions[i]);

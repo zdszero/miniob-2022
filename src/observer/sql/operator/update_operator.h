@@ -13,10 +13,13 @@ public:
   RC open() override;
   RC next() override;
   RC close() override;
-
   Tuple *current_tuple() override
   {
     return nullptr;
+  }
+  OperatorType type() override
+  {
+    return OperatorType::UPDATE;
   }
 
 private:

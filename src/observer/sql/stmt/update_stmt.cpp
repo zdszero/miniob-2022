@@ -47,11 +47,29 @@ RC UpdateStmt::create(Db *db, Updates &updates_sql, Stmt *&stmt)
   }
   // value
   ExprContext update_ctx(table);
-  size_t attr_cnt = 0;
-  size_t aggr_cnt = 0;
-  RC rc = check_leaf_node(updates_sql.expr, update_ctx, attr_cnt, aggr_cnt);
-  if (rc != RC::SUCCESS) {
-    return rc;
+  RC rc;
+  bool is_select = false;
+  Stmt *select_stmt;
+  Expression *update_expr = nullptr;
+  if (updates_sql.is_select) {
+    is_select = true;
+    if (updates_sql.select->expr_num != 1) {
+      LOG_WARN("select more than 1 attributes in update-select is wrong");
+      return RC::SQL_SYNTAX;
+    }
+    rc = SelectStmt::create(db, *updates_sql.select, select_stmt);
+    if (rc != RC::SUCCESS) {
+      LOG_ERROR("failed to create sub select stmt in update stmt");
+      return rc;
+    }
+  } else {
+    size_t attr_cnt = 0;
+    size_t aggr_cnt = 0;
+    rc = check_leaf_node(updates_sql.expr, update_ctx, attr_cnt, aggr_cnt);
+    if (rc != RC::SUCCESS) {
+      return rc;
+    }
+    update_expr = ExprFactory::create(updates_sql.expr, update_ctx);
   }
   // filter
   FilterStmt *filter_stmt = nullptr;
@@ -63,10 +81,12 @@ RC UpdateStmt::create(Db *db, Updates &updates_sql, Stmt *&stmt)
 
   // everything alright
   UpdateStmt *update_stmt = new UpdateStmt();
+  update_stmt->is_select_ = is_select;
+  update_stmt->select_stmt_ = static_cast<SelectStmt *>(select_stmt);
   update_stmt->table_ = table;
   update_stmt->update_field_meta_ = field_meta;
   update_stmt->filter_stmt_ = filter_stmt;
-  update_stmt->update_value_ = &updates_sql.expr->val;
+  update_stmt->update_expr_ = update_expr;
   stmt = update_stmt;
   return RC::SUCCESS;
 }

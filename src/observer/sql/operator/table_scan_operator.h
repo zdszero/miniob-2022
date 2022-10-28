@@ -32,8 +32,12 @@ public:
   RC open() override;
   RC next() override;
   RC close() override;
-
   Tuple * current_tuple() override;
+  OperatorType type() override
+  {
+    return OperatorType::TABLE_SCAN;
+  }
+
   Tuple * current_tuple_copy();
 
   // int tuple_cell_num() const override

@@ -50,6 +50,10 @@ public:
   RC next() override;
   RC close() override;
   Tuple *current_tuple() override;
+  OperatorType type() override
+  {
+    return OperatorType::AGGREGATE;
+  }
 
   const std::vector<std::string> &results() const
   {
@@ -59,9 +63,14 @@ public:
   {
     return exprs_;
   }
+  TupleCell first_result() const
+  {
+    return cell_;
+  }
 
 private:
   std::vector<Expression *> exprs_;
   AggregationTable agt_;
   std::vector<std::string> results_;
+  TupleCell cell_;
 };

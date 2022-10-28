@@ -29,8 +29,11 @@ public:
   RC open() override;
   RC next() override;
   RC close() override;
-
   Tuple * current_tuple() override;
+  OperatorType type() override {
+    return OperatorType::INDEX_SCAN;
+  }
+
 private:
   const Table *table_ = nullptr;
   Index *index_ = nullptr;

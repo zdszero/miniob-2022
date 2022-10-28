@@ -30,6 +30,11 @@ public:
   RC open() override;
   RC next() override;
   RC close() override;
+  Tuple * current_tuple() override;
+  OperatorType type() override
+  {
+    return OperatorType::PROJECT;
+  }
 
   int tuple_cell_num() const
   {
@@ -38,7 +43,6 @@ public:
 
   RC tuple_cell_spec_at(int index, const TupleCellSpec *&spec) const;
 
-  Tuple * current_tuple() override;
 private:
   ProjectTuple tuple_;
 };

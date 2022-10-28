@@ -18,17 +18,6 @@ static void collect_aggr_exprs(Expression *expr, std::vector<AggregateExpr *> &a
   }
 }
 
-static std::string evaluate_expr(Expression *expr)
-{
-  assert(expr->type() != ExprType::FIELD);
-  RowTuple unused;
-  TupleCell cell;
-  expr->get_value(unused, cell);
-  std::stringstream ss;
-  cell.to_string(ss);
-  return ss.str();
-}
-
 void Aggregator::add_tuple(Tuple *t)
 {
   bool is_star = (field_.meta() == nullptr);
@@ -168,8 +157,19 @@ RC AggregateOperator::open()
   }
 
   results_.reserve(exprs_.size());
+  int i = 0;
   for (Expression *expr : exprs_) {
-    results_.push_back(evaluate_expr(expr));
+    assert(expr->type() != ExprType::FIELD);
+    RowTuple unused;
+    TupleCell cell;
+    expr->get_value(unused, cell);
+    std::stringstream ss;
+    cell.to_string(ss);
+    results_.push_back(ss.str());
+    if (i == 0) {
+      cell_ = cell;
+    }
+    i++;
   }
 
   return RC::SUCCESS;

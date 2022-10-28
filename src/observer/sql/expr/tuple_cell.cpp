@@ -129,6 +129,14 @@ int TupleCell::compare(const TupleCell &other) const
   }
 }
 
+Value TupleCell::to_value() const
+{
+  Value val;
+  val.type = attr_type_;
+  val.data = data_;
+  return val;
+}
+
 float TupleCell::cast_to_number() const
 {
   switch (attr_type_) {

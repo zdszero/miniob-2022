@@ -32,6 +32,14 @@ public:
   RC open() override;
   RC next() override;
   RC close() override;
+  Tuple * current_tuple() override
+  {
+    return nullptr;
+  }
+  OperatorType type() override
+  {
+    return OperatorType::INSERT;
+  }
 
 private:
   InsertStmt *insert_stmt_ = nullptr;

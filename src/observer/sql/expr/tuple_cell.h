@@ -37,6 +37,7 @@ public:
   void set_data(const char *data) { this->set_data(const_cast<char *>(data)); }
 
   void to_string(std::ostream &os) const;
+  Value to_value() const;
 
   int compare(const TupleCell &other) const;
   bool wildcard_compare(const TupleCell &other, bool is_not) const;
