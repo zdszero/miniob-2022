@@ -27,6 +27,7 @@ public:
   static void destory_operator(Operator *oper)
   {
     if (oper->children_.size() == 0) {
+      delete oper;
       return;
     }
     for (Operator *child : oper->children_) {

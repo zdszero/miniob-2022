@@ -89,6 +89,7 @@ void node_destroy(ast *n)
     default:
       assert(0);
   }
+  free(n);
 }
 
 void condition_init(Condition *condition, CompOp comp, int left_is_select, ast *l, Selects *left_select,
@@ -295,6 +296,7 @@ void selects_destroy(Selects *selects)
   for (size_t i = 0; i < selects->expr_num; i++) {
     node_destroy(selects->exprs[i]);
   }
+  selects->expr_num = 0;
 }
 
 void inserts_init(Inserts *inserts, const char *relation_name)

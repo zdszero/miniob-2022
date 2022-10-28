@@ -71,6 +71,7 @@ public:
   virtual ~RowTuple()
   {
     for (TupleCellSpec *spec : speces_) {
+      delete spec->expression();
       delete spec;
     }
     speces_.clear();
