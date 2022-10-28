@@ -38,42 +38,53 @@ RC UpdateStmt::create(Db *db, Updates &updates_sql, Stmt *&stmt)
     LOG_WARN("no such table. db=%s, table_name=%s", db->name(), table_name);
     return RC::SCHEMA_TABLE_NOT_EXIST;
   }
-  // field
-  const char *attr_name = updates_sql.attribute_name;
-  const FieldMeta *field_meta = table->table_meta().field(attr_name);
-  if (field_meta == nullptr) {
-    LOG_WARN("no such field. field=%s.%s.%s", db->name(), table->name(), attr_name);
-    return RC::SCHEMA_FIELD_MISSING;
-  }
-  // value
-  ExprContext update_ctx(table);
-  RC rc;
-  bool is_select = false;
-  Stmt *select_stmt;
-  Expression *update_expr = nullptr;
-  if (updates_sql.is_select) {
-    is_select = true;
-    if (updates_sql.select->expr_num != 1) {
-      LOG_WARN("select more than 1 attributes in update-select is wrong");
-      return RC::SQL_SYNTAX;
+  std::vector<UpdateUnit> units;
+  for (size_t pair_num = 0; pair_num < updates_sql.update_pair_num; pair_num++) {
+    UpdatePair &pair = updates_sql.update_pairs[pair_num];
+    // field
+    const char *attr_name = pair.attribute_name;
+    const FieldMeta *field_meta = table->table_meta().field(attr_name);
+    if (field_meta == nullptr) {
+      LOG_WARN("no such field. field=%s.%s.%s", db->name(), table->name(), attr_name);
+      return RC::SCHEMA_FIELD_MISSING;
     }
-    rc = SelectStmt::create(db, *updates_sql.select, select_stmt);
-    if (rc != RC::SUCCESS) {
-      LOG_ERROR("failed to create sub select stmt in update stmt");
-      return rc;
+    // value
+    ExprContext update_ctx(table);
+    RC rc;
+    bool is_select = false;
+    Stmt *select_stmt = nullptr;
+    Expression *update_expr = nullptr;
+    if (pair.is_select) {
+      is_select = true;
+      if (pair.select->expr_num != 1) {
+        LOG_WARN("select more than 1 attributes in update-select is wrong");
+        return RC::SQL_SYNTAX;
+      }
+      rc = SelectStmt::create(db, *pair.select, select_stmt);
+      if (rc != RC::SUCCESS) {
+        LOG_ERROR("failed to create sub select stmt in update stmt");
+        return rc;
+      }
+    } else {
+      size_t attr_cnt = 0;
+      size_t aggr_cnt = 0;
+      rc = check_leaf_node(pair.expr, update_ctx, attr_cnt, aggr_cnt);
+      if (rc != RC::SUCCESS) {
+        return rc;
+      }
+      update_expr = ExprFactory::create(pair.expr, update_ctx);
     }
-  } else {
-    size_t attr_cnt = 0;
-    size_t aggr_cnt = 0;
-    rc = check_leaf_node(updates_sql.expr, update_ctx, attr_cnt, aggr_cnt);
-    if (rc != RC::SUCCESS) {
-      return rc;
-    }
-    update_expr = ExprFactory::create(updates_sql.expr, update_ctx);
+    UpdateUnit unit;
+    unit.update_expr = update_expr;
+    unit.update_field_meta = field_meta;
+    unit.is_select = is_select;
+    unit.select_stmt = static_cast<SelectStmt *>(select_stmt);
+    units.push_back(unit);
   }
   // filter
   FilterStmt *filter_stmt = nullptr;
-  rc = FilterStmt::create(update_ctx, updates_sql.conditions, updates_sql.condition_num, filter_stmt);
+  ExprContext update_ctx(table);
+  RC rc = FilterStmt::create(update_ctx, updates_sql.conditions, updates_sql.condition_num, filter_stmt);
   if (rc != RC::SUCCESS) {
     LOG_WARN("cannot construct filter stmt");
     return rc;
@@ -81,12 +92,9 @@ RC UpdateStmt::create(Db *db, Updates &updates_sql, Stmt *&stmt)
 
   // everything alright
   UpdateStmt *update_stmt = new UpdateStmt();
-  update_stmt->is_select_ = is_select;
-  update_stmt->select_stmt_ = static_cast<SelectStmt *>(select_stmt);
   update_stmt->table_ = table;
-  update_stmt->update_field_meta_ = field_meta;
   update_stmt->filter_stmt_ = filter_stmt;
-  update_stmt->update_expr_ = update_expr;
+  update_stmt->units_ = std::move(units);
   stmt = update_stmt;
   return RC::SUCCESS;
 }

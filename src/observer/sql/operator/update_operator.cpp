@@ -20,38 +20,41 @@ RC UpdateOperator::open() {
     return rc;
   }
 
-  Value update_val;
-  if (update_stmt_->is_select()) {
-    SelectStmt *select_stmt = update_stmt_->select_stmt();
-    Operator *oper = OperatorFactory::create(select_stmt);
-    DEFER([oper](){ OperatorFactory::destory_operator(oper); });
-    if (oper->type() == OperatorType::AGGREGATE) {
-      AggregateOperator *aggr_oper = static_cast<AggregateOperator *>(oper);
-      aggr_oper->open();
-      assert(aggr_oper->aggr_fields().size() == 1);
-      TupleCell cell = aggr_oper->first_result();
-      update_val = cell.to_value();
-    } else if (oper->type() == OperatorType::PROJECT) {
-      ProjectOperator *project_oper = static_cast<ProjectOperator *>(oper);
-      project_oper->open();
-      RC rc = project_oper->next();
-      if (rc != RC::SUCCESS) {
-        LOG_WARN("cannot fetch even one tuple in update-select");
-        return rc;
+  std::vector<Value> update_vals(update_stmt_->units().size());
+  for (size_t pair_num = 0; pair_num < update_stmt_->units().size(); pair_num++) {
+    auto &unit = update_stmt_->units()[pair_num];
+    if (unit.is_select) {
+      SelectStmt *select_stmt = unit.select_stmt;
+      Operator *oper = OperatorFactory::create(select_stmt);
+      DEFER([oper](){ OperatorFactory::destory_operator(oper); });
+      if (oper->type() == OperatorType::AGGREGATE) {
+        AggregateOperator *aggr_oper = static_cast<AggregateOperator *>(oper);
+        aggr_oper->open();
+        assert(aggr_oper->aggr_fields().size() == 1);
+        TupleCell cell = aggr_oper->first_result();
+        update_vals[pair_num] = cell.to_value();
+      } else if (oper->type() == OperatorType::PROJECT) {
+        ProjectOperator *project_oper = static_cast<ProjectOperator *>(oper);
+        project_oper->open();
+        RC rc = project_oper->next();
+        if (rc != RC::SUCCESS) {
+          LOG_WARN("cannot fetch even one tuple in update-select");
+          return rc;
+        }
+        Tuple *tuple = project_oper->current_tuple();
+        assert(select_stmt->exprs().size() == 1);
+        Expression *expr = select_stmt->exprs()[0];
+        TupleCell cell;
+        expr->get_value(*tuple, cell);
+        update_vals[pair_num] = cell.to_value();
+        rc = project_oper->next();
+        if (rc != RC::RECORD_EOF) {
+          LOG_WARN("fetch more than one tuple in update-select");
+          return RC::GENERIC_ERROR;
+        }
+      } else {
+        assert(false);
       }
-      Tuple *tuple = project_oper->current_tuple();
-      assert(select_stmt->exprs().size() == 1);
-      Expression *expr = select_stmt->exprs()[0];
-      TupleCell cell;
-      expr->get_value(*tuple, cell);
-      update_val = cell.to_value();
-      rc = project_oper->next();
-      if (rc != RC::RECORD_EOF) {
-        LOG_WARN("fetch more than one tuple in update-select");
-        return RC::GENERIC_ERROR;
-      }
-    } else {
-      assert(false);
     }
   }
 
@@ -66,21 +69,24 @@ RC UpdateOperator::open() {
     RowTuple *row_tuple = static_cast<RowTuple *>(tuple);
     Record &record = row_tuple->record();
     char *record_data = record.data();
-    if (update_stmt_->is_select()) {
-      // update_val has been set
-    } else {
-      Expression * expr = update_stmt_->update_expr();
-      TupleCell cell;
-      rc = expr->get_value(*tuple, cell);
+    for (size_t pair_num = 0; pair_num < update_stmt_->units().size(); pair_num++) {
+      auto &unit = update_stmt_->units()[pair_num];
+      if (unit.is_select) {
+        // update_val has been set
+      } else {
+        Expression * expr = unit.update_expr;
+        TupleCell cell;
+        rc = expr->get_value(*tuple, cell);
+        if (rc != RC::SUCCESS) {
+          LOG_ERROR("failed to get value in update operator");
+          return rc;
+        }
+        update_vals[pair_num] = cell.to_value();
+      }
+      rc = update_data(record_data, unit.update_field_meta, update_vals[pair_num]);
       if (rc != RC::SUCCESS) {
-        LOG_ERROR("failed to get value in update operator");
         return rc;
       }
-      update_val = cell.to_value();
-    }
-    rc = update_data(record_data, update_stmt_->update_field_meta(), update_val);
-    if (rc != RC::SUCCESS) {
-      return rc;
     }
     record.set_data(record_data);
     rc = table->update_record(trx_, &record);

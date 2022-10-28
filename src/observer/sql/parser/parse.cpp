@@ -353,23 +353,37 @@ void deletes_destroy(Deletes *deletes)
   deletes->relation_name = nullptr;
 }
 
-void updates_init(Updates *updates, const char *relation_name, const char *attribute_name, int is_select,
-    Selects *select, ast *expr, Condition conditions[], size_t condition_num)
+void update_pair_init(UpdatePair *update_pair, const char *attribute_name, int is_select, Selects *select, ast *expr)
 {
-  updates->relation_name = strdup(relation_name);
-  updates->attribute_name = strdup(attribute_name);
+  update_pair->attribute_name = strdup(attribute_name);
   if (is_select) {
     assert(expr == NULL);
-    updates->expr = NULL;
-    updates->select = new Selects();
-    *updates->select = *select;
+    update_pair->expr = NULL;
+    update_pair->select = new Selects();
+    *update_pair->select = *select;
   } else {
     assert(select == NULL);
-    updates->select = NULL;
-    updates->expr = expr;
+    update_pair->select = NULL;
+    update_pair->expr = expr;
   }
-  updates->is_select = is_select;
+  update_pair->is_select = is_select;
+}
 
+void update_pair_destroy(UpdatePair *update_pair)
+{
+  free(update_pair->attribute_name);
+  update_pair->attribute_name = nullptr;
+
+  if (update_pair->is_select) {
+    selects_destroy(update_pair->select);
+  } else {
+    node_destroy(update_pair->expr);
+  }
+}
+
+void updates_init(Updates *updates, const char *relation_name, Condition conditions[], size_t condition_num)
+{
+  updates->relation_name = strdup(relation_name);
   assert(condition_num <= sizeof(updates->conditions) / sizeof(updates->conditions[0]));
   for (size_t i = 0; i < condition_num; i++) {
     updates->conditions[i] = conditions[i];
@@ -377,24 +391,22 @@ void updates_init(Updates *updates, const char *relation_name, const char *attri
   updates->condition_num = condition_num;
 }
 
+void update_append_pair(Updates *updates, UpdatePair *update_pair)
+{
+  updates->update_pairs[updates->update_pair_num++] = *update_pair;
+}
 
 void updates_destroy(Updates *updates)
 {
   free(updates->relation_name);
-  free(updates->attribute_name);
-  updates->relation_name = nullptr;
-  updates->attribute_name = nullptr;
-
-  if (updates->is_select) {
-    selects_destroy(updates->select);
-  } else {
-    node_destroy(updates->expr);
-  }
-
   for (size_t i = 0; i < updates->condition_num; i++) {
     condition_destroy(&updates->conditions[i]);
   }
   updates->condition_num = 0;
+  for (size_t i = 0; i < updates->update_pair_num; i++) {
+    update_pair_destroy(&updates->update_pairs[i]);
+  }
+  updates->update_pair_num = 0;
 }
 
 void create_table_append_attribute(CreateTable *create_table, AttrInfo *attr_info)

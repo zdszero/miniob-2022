@@ -348,19 +348,31 @@ delete:
     ;
 
 update:
-    UPDATE ID SET ID EQ exp where SEMICOLON {
+    UPDATE ID SET update_pair update_pair_list where SEMICOLON {
 			CONTEXT->ssql->flag = SCF_UPDATE;//"update";
-			updates_init(&CONTEXT->ssql->sstr.update, $2, $4, 0, NULL, $6, 
-					CONTEXT->conditions[CUR_SEL], CONTEXT->condition_length[CUR_SEL]);
-			CONTEXT->condition_length[CUR_SEL] = 0;
-		}
-		| UPDATE ID SET ID EQ update_select where SEMICOLON {
-			CONTEXT->ssql->flag = SCF_UPDATE;//"update";
-			updates_init(&CONTEXT->ssql->sstr.update, $2, $4, 1, &CONTEXT->update_select, NULL,
-					CONTEXT->conditions[CUR_SEL], CONTEXT->condition_length[CUR_SEL]);
+			updates_init(&CONTEXT->ssql->sstr.update, $2, CONTEXT->conditions[CUR_SEL], CONTEXT->condition_length[CUR_SEL]);
 			CONTEXT->condition_length[CUR_SEL] = 0;
 		}
     ;
+
+update_pair:
+		ID EQ exp {
+			UpdatePair pair;
+			update_pair_init(&pair, $1, 0, NULL, $3);
+			update_append_pair(&CONTEXT->ssql->sstr.update, &pair);
+		}
+		| ID EQ update_select {
+			UpdatePair pair;
+			update_pair_init(&pair, $1, 1, &CONTEXT->update_select, NULL);
+			update_append_pair(&CONTEXT->ssql->sstr.update, &pair);
+		}
+		;
+
+update_pair_list:
+		/* empty */
+		| COMMA update_pair update_pair_list
+		;
+
 
 select:
 		select_body SEMICOLON {

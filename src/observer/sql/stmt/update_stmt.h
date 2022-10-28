@@ -19,6 +19,13 @@ See the Mulan PSL v2 for more details. */
 
 class Table;
 
+struct UpdateUnit {
+  const FieldMeta* update_field_meta{nullptr};
+  Expression *update_expr{nullptr};
+  SelectStmt *select_stmt{nullptr};
+  bool is_select{false};
+};
+
 class UpdateStmt : public Stmt
 {
 public:
@@ -32,17 +39,11 @@ public:
   static RC create(Db *db, Updates &update_sql, Stmt *&stmt);
   Table *table() const { return table_; }
   FilterStmt *filter_stmt() const { return filter_stmt_; }
-  SelectStmt *select_stmt() const { return select_stmt_; }
-  const FieldMeta* update_field_meta() { return update_field_meta_; }
-  Expression *update_expr() const { return update_expr_; }
-  bool is_select() const { return is_select_; }
+  const std::vector<UpdateUnit> &units() const { return units_; }
 
 private:
   Table *table_ = nullptr;
   FilterStmt *filter_stmt_ = nullptr;
-  const FieldMeta* update_field_meta_ = nullptr;
-  Expression *update_expr_;
-  SelectStmt *select_stmt_;
-  bool is_select_;
+  std::vector<UpdateUnit> units_;
 };
 
