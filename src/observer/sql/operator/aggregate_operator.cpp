@@ -140,7 +140,6 @@ RC AggregateOperator::open()
       collect_aggr_exprs(static_cast<CompoundExpr *>(expr), aggr_exprs);
     }
   }
-  printf("aggregates size: %ld\n", aggr_exprs.size());
 
   // add all tuples to hash table
   for (AggregateExpr *expr : aggr_exprs) {

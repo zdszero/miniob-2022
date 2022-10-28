@@ -242,11 +242,6 @@ void attr_info_destroy(AttrInfo *attr_info)
 
 void selects_init(Selects *selects, ...);
 
-void selects_clear(Selects *selects)
-{
-  memset((void *)selects, 0, sizeof(Selects));
-}
-
 void select_append_exprs(Selects *selects, ast* exprs[], size_t expr_num)
 {
   assert(expr_num <= MAX_NUM);

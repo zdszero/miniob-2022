@@ -6,9 +6,9 @@
 #include "sql/parser/lex.yy.h"
 // #include "common/log/log.h" // 包含C++中的头文件
 
-#include<stdio.h>
-#include<stdlib.h>
-#include<string.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 #define CUR_SEL CONTEXT->select_length-1
 
@@ -75,6 +75,15 @@ ParserContext *get_context(yyscan_t scanner)
 }
 
 #define CONTEXT get_context(scanner)
+
+void clear_selection(ParserContext *context, size_t select_idx)
+{
+	memset((void *)&context->selects[select_idx], 0, sizeof(Selects));
+	context->join_length[select_idx] = 0;
+	context->join_condition_length[select_idx] = 0;
+	context->condition_length[select_idx] = 0;
+	context->expr_length[select_idx] = 0;
+}
 
 %}
 
@@ -377,7 +386,7 @@ update_pair_list:
 select:
 		select_body SEMICOLON {
 			CONTEXT->ssql->sstr.selection = CONTEXT->selects[CUR_SEL];
-			selects_clear(&CONTEXT->selects[CUR_SEL]);
+			clear_selection(CONTEXT, CUR_SEL);
 			CONTEXT->select_length--;
 		}
 		;
@@ -531,7 +540,7 @@ condition:
 update_select:
 		LBRACE select_body RBRACE {
 			CONTEXT->update_select = CONTEXT->selects[CUR_SEL];
-			selects_clear(&CONTEXT->selects[CUR_SEL]);
+			clear_selection(CONTEXT, CUR_SEL);
 			CONTEXT->select_length--;
 		}
 		;
@@ -539,7 +548,7 @@ update_select:
 left_sub_select:
 		LBRACE select_body RBRACE {
 			CONTEXT->left_sub_select = CONTEXT->selects[CUR_SEL];
-			selects_clear(&CONTEXT->selects[CUR_SEL]);
+			clear_selection(CONTEXT, CUR_SEL);
 			CONTEXT->select_length--;
 		}
 		;
@@ -547,7 +556,7 @@ left_sub_select:
 right_sub_select:
 		LBRACE select_body RBRACE {
 			CONTEXT->right_sub_select = CONTEXT->selects[CUR_SEL];
-			selects_clear(&CONTEXT->selects[CUR_SEL]);
+			clear_selection(CONTEXT, CUR_SEL);
 			CONTEXT->select_length--;
 		}
 		;

@@ -103,7 +103,7 @@ static void ast_to_string_helper(ast *t, std::ostream &os) {
   } else if (t->nodetype == NodeType::AGGRN) {
     os << aggregate_func_string(t->aggr.aggr_type) << "(";
     if (t->aggr.attr.relation_name != nullptr) {
-      os << t->attr.relation_name << ".";
+      os << t->aggr.attr.relation_name << ".";
     }
     os << t->aggr.attr.attribute_name;
     os << ")";
