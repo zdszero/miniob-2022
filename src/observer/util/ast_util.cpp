@@ -21,9 +21,23 @@ static bool can_evaluate(ast *t)
   }
 }
 
+static bool is_null(ast *t)
+{
+  if (t == nullptr) {
+    return false;
+  }
+  if (t->nodetype == NodeType::OPN) {
+    return is_null(t->op.left) || is_null(t->op.right);
+  } else if (t->nodetype == NodeType::VALN) {
+    return (t->val.type == NULLS);
+  } else {
+    return false;
+  }
+}
+
 static float get_float_value(Value *v)
 {
-  float ret;
+  float ret = 0;
   switch (v->type) {
     case INTS:
       ret = static_cast<float>(*(int *)v->data);
@@ -37,6 +51,7 @@ static float get_float_value(Value *v)
     case DATES:
       ret = static_cast<float>(*(int32_t *)v->data);
       break;
+    case NULLS:
     default:
       assert(false);
   }
@@ -76,6 +91,13 @@ bool evaluate(ast* &t)
     return false;
   }
   if (t->nodetype == VALN) {
+    return true;
+  }
+  if (is_null(t)) {
+    node_destroy(t);
+    Value new_val;
+    value_init_null(&new_val);
+    t = new_value_node(&new_val);
     return true;
   }
   float res = evaluate_util(t);

@@ -98,9 +98,9 @@ void clear_selection(ParserContext *context, size_t select_idx)
 // punctuations
 %token SEMICOLON DOT COMMA LBRACE RBRACE
 // types
-%token INT_T STRING_T FLOAT_T DATE_T
+%token INT_T STRING_T FLOAT_T DATE_T TEXT_T NULL_T NULLABLE
 // comps
-%token EQ LT GT LE GE NE LIKE NOT
+%token EQ LT GT LE GE NE LIKE NOT ISS
 // aggregation functions
 %token MAX MIN AVG SUM COUNT
 // math operator
@@ -133,6 +133,7 @@ void clear_selection(ParserContext *context, size_t select_idx)
 %type <ast1> value;
 %type <ast1> exp;
 %type <ast1> aggr_func;
+%type <number> nullable;
 
 // operator precedence
 %left PLUS MINUS
@@ -268,19 +269,30 @@ attr_def_list:
     ;
     
 attr_def:
-    ID_get type LBRACE number RBRACE 
+    ID_get type nullable LBRACE number RBRACE 
 		{
 			AttrInfo attribute;
-			attr_info_init(&attribute, CONTEXT->id, $2, $4);
+			attr_info_init(&attribute, CONTEXT->id, $2, $5, $3);
 			create_table_append_attribute(&CONTEXT->ssql->sstr.create_table, &attribute);
 		}
-    |ID_get type
+    |ID_get type nullable
 		{
 			AttrInfo attribute;
-			attr_info_init(&attribute, CONTEXT->id, $2, 4);
+			attr_info_init(&attribute, CONTEXT->id, $2, 4, $3);
 			create_table_append_attribute(&CONTEXT->ssql->sstr.create_table, &attribute);
 		}
     ;
+nullable:
+		/* empty */ {
+			$$ = 0;
+		}
+		| NULLABLE {
+			$$ = 1;
+		}
+		| NOT NULL_T {
+			$$ = 0;
+		}
+		;
 number:
 		NUMBER {$$ = $1;}
 		;
@@ -289,6 +301,7 @@ type:
 		| STRING_T { $$=CHARS;  }
 		| FLOAT_T  { $$=FLOATS; }
 		| DATE_T   { $$=DATES;  }
+		| TEXT_T   { $$=TEXTS;  }
 		;
 ID_get:
 		ID {
@@ -341,6 +354,11 @@ value:
 			Value value;
 			$1 = substr($1,1,strlen($1)-2);
   		value_init_string(&value, $1);
+			$$ = new_value_node(&value);
+		}
+		|NULL_T {
+			Value value;
+			value_init_null(&value);
 			$$ = new_value_node(&value);
 		}
     ;
@@ -609,6 +627,8 @@ comOp:
     | NE { CONTEXT->comp[CUR_SEL] = NOT_EQUAL; }
 		| LIKE { CONTEXT->comp[CUR_SEL] = STR_LIKE; }
 		| NOT LIKE { CONTEXT->comp[CUR_SEL] = STR_NOT_LIKE; }
+		| ISS { CONTEXT->comp[CUR_SEL] = IS; }
+		| ISS NOT { CONTEXT->comp[CUR_SEL] = IS_NOT; }
     ;
 
 load_data:

@@ -25,4 +25,4 @@ std::string aggregate_func_string(AggrType aggr_type);
 std::string comp_to_string(CompOp comp);
 std::string expr_to_string(Expression *expr, bool is_multi_table);
 void print_expr(Expression *expr, int level=0);
-RC try_to_cast_value(AttrType to_type, Value &value);
+RC try_to_cast_value(AttrType to_type, bool nullable, Value &value);

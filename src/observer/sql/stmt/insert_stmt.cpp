@@ -64,11 +64,12 @@ RC InsertStmt::create(Db *db, Inserts &inserts, Stmt *&stmt)
     for (int j = 0; j < expr_num; j++) {
       const FieldMeta *field_meta = table_meta.field(j + sys_field_num);
       const AttrType field_type = field_meta->type();
+      bool nullable = field_meta->nullable();
       Value &value = inserts.pairs[i].exprs[j]->val;
       assert(value.type != DATES);
       assert(field_type != UNDEFINED);
       RC rc;
-      if ((rc = try_to_cast_value(field_type, value)) != RC::SUCCESS) {
+      if ((rc = try_to_cast_value(field_type, nullable, value)) != RC::SUCCESS) {
         return rc;
       }
     }

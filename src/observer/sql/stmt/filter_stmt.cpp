@@ -20,6 +20,18 @@ See the Mulan PSL v2 for more details. */
 
 static RC check_condition(Condition &condition, ExprContext &ctx)
 {
+  CompOp comp = condition.comp;
+  if (comp == IS || comp == IS_NOT) {
+    if (condition.right_is_select) {
+      return RC::SQL_SYNTAX;
+    }
+    if (condition.right_ast->nodetype != NodeType::VALN) {
+      return RC::SQL_SYNTAX;
+    }
+    if (condition.right_ast->val.type != AttrType::NULLS) {
+      return RC::SQL_SYNTAX;
+    }
+  }
   size_t attr_cnt = 0;
   size_t aggr_cnt = 0;
   ast *lt = condition.left_ast;
@@ -43,12 +55,12 @@ static RC check_condition(Condition &condition, ExprContext &ctx)
 // FAILURE
 static RC check_date_valid(Expression *left, Expression *right)
 {
-  if (left->type() == ExprType::VALUE || right->type() == ExprType::FIELD) {
+  if (left->type() == ExprType::VALUE && right->type() == ExprType::FIELD) {
     Expression *tmp = left;
     left = right;
     right = tmp;
   }
-  if (left->type() == ExprType::FIELD || right->type() == ExprType::VALUE) {
+  if (left->type() == ExprType::FIELD && right->type() == ExprType::VALUE) {
     FieldExpr *left_field = static_cast<FieldExpr *>(left);
     ValueExpr *right_value = static_cast<ValueExpr *>(right);
     if (left_field->field().attr_type() == DATES) {
@@ -57,7 +69,7 @@ static RC check_date_valid(Expression *left, Expression *right)
       right_value->get_value(unused, cell);
       int32_t date;
       RC rc;
-      if ((rc = string_to_date(cell.data(), date)) != RC::SUCCESS) {
+      if (cell.attr_type() == CHARS && (rc = string_to_date(cell.data(), date)) != RC::SUCCESS) {
         return rc;
       }
     }
@@ -104,6 +116,7 @@ RC FilterStmt::create_filter_unit(ExprContext &ctx, Condition &condition, Filter
     return RC::INVALID_ARGUMENT;
   }
 
+
   rc = check_condition(condition, ctx);
   if (rc != RC::SUCCESS) {
     return rc;
@@ -122,87 +135,5 @@ RC FilterStmt::create_filter_unit(ExprContext &ctx, Condition &condition, Filter
   filter_unit->set_left(left);
   filter_unit->set_right(right);
 
-  return rc;
-}
-
-RC FilterStmt::check_field_with_value(AttrType field_type, Value &value, CompOp op)
-{
-  RC rc = RC::SUCCESS;
-  if (field_type == value.type) {
-    return rc;
-  }
-  switch (field_type) {
-    case INTS: {
-      float fv;
-      int v;
-      bool should_be_int = false;
-      if (value.type == CHARS) {
-        fv = std::atof((char *)value.data);
-        v = std::atoi((char *)value.data);
-      } else {
-        fv = *(float *)value.data;
-        v = static_cast<int>(fv);
-      }
-      if (fv == v) {
-        should_be_int = true;
-      }
-      if (!should_be_int) {
-        switch (op) {
-          // case EQUAL_TO:
-          //   return RC::FILTER_IMPOSSIBLE;
-          // case NOT_EQUAL:
-          //   return RC::FILTER_ALWAYS;
-          case LESS_EQUAL:
-          case GREAT_THAN:
-            break;
-          case LESS_THAN:
-          case GREAT_EQUAL:
-            v++;
-            break;
-          case STR_LIKE:
-          case STR_NOT_LIKE:
-            return RC::MISMATCH;
-          default:
-            LOG_ERROR("unknown comp\n");
-            return RC::INTERNAL;
-        }
-      }
-      value_destroy(&value);
-      value_init_integer(&value, v);
-    } break;
-    case FLOATS:
-      if (value.type == INTS) {
-        float v = static_cast<float>(*(int *)value.data);
-        value_destroy(&value);
-        value_init_float(&value, v);
-      } else {
-        float v = std::atof((char *)value.data);
-        value_destroy(&value);
-        value_init_float(&value, v);
-      }
-      break;
-    case CHARS:
-      // cast field as number, this has to be implemented when getting real data
-      break;
-    case DATES:
-      if (value.type == INTS) {
-      } else if (value.type == FLOATS) {
-        int v = static_cast<int32_t>(*(float *)value.data);
-        value_destroy(&value);
-        value_init_date(&value, v);
-      } else {
-        int32_t v;
-        rc = string_to_date((char *)value.data, v);
-        if (rc != RC::SUCCESS) {
-          return rc;
-        }
-        value_destroy(&value);
-        value_init_date(&value, v);
-      }
-      break;
-    default:
-      LOG_ERROR("unknown field type: %d\n", field_type);
-      return RC::INTERNAL;
-  }
   return rc;
 }

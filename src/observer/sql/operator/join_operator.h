@@ -63,6 +63,9 @@ class HashJoinOperator : public Operator {
         TupleCell cell;
         RC rc = left_expr->get_value(*it, cell);
         assert(rc == RC::SUCCESS);
+        if (cell.attr_type() == NULLS) {
+          continue;
+        }
         if (!ht_.count(cell)) {
           ht_.insert({cell, TempTableIters{it}});
         } else {
@@ -73,6 +76,9 @@ class HashJoinOperator : public Operator {
       for (Tuple *t : right_set) {
         TupleCell cell;
         RC rc = right_expr->get_value(*t, cell);
+        if (cell.attr_type() == NULLS) {
+          continue;
+        }
         assert(rc == RC::SUCCESS);
         if (!ht_.count(cell)) {
           continue;

@@ -130,6 +130,9 @@ public:
       }
       return str;
     }
+    case NULLS: {
+      return "null";
+    }
     default:{
       LOG_ERROR("unknown attr type. %d", attr_type_);
       abort();

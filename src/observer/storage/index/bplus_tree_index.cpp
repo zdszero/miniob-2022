@@ -14,6 +14,7 @@ See the Mulan PSL v2 for more details. */
 
 #include "storage/index/bplus_tree_index.h"
 #include "common/log/log.h"
+#include "storage/common/limits.h"
 
 BplusTreeIndex::~BplusTreeIndex() noexcept
 {
@@ -101,6 +102,10 @@ RC BplusTreeIndex::drop() {
 
 RC BplusTreeIndex::insert_entry(const char *record, const RID *rid)
 {
+  // ignore null value
+  if (is_mem_null((void *)(record+field_meta_.offset()), field_meta_.type(), field_meta_.len())) {
+    return RC::SUCCESS;
+  }
   if (unique_ == 1) {
     RC rc;
     IndexScanner *scanner = create_scanner(

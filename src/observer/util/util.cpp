@@ -88,6 +88,10 @@ std::string comp_to_string(CompOp comp)
       return "like";
     case STR_NOT_LIKE:
       return "not like";
+    case IS:
+      return "is";
+    case IS_NOT:
+      return "is not";
     default:
       break;
   }
@@ -173,9 +177,15 @@ void print_expr(Expression *expr, int level)
   }
 }
 
-RC try_to_cast_value(AttrType to_type, Value &value)
+RC try_to_cast_value(AttrType to_type, bool nullable, Value &value)
 {
   if (value.type == to_type) {
+    return RC::SUCCESS;
+  }
+  if (value.type == NULLS) {
+    if (!nullable) {
+      return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+    }
     return RC::SUCCESS;
   }
   switch (to_type) {
@@ -232,6 +242,9 @@ RC try_to_cast_value(AttrType to_type, Value &value)
         return RC::SCHEMA_FIELD_TYPE_MISMATCH;
       }
       break;
+    case NULLS:
+      LOG_PANIC("null cannot be used as attribute type");
+      return RC::INTERNAL;
     default:
       LOG_ERROR("unknown field type: %d\n", to_type);
       return RC::INTERNAL;

@@ -11,8 +11,7 @@
 
 class Aggregator {
 public:
-  Aggregator(AggregateExpr *expr) : field_(expr->field()), aggr_type_(expr->aggr_type())
-  {}
+  Aggregator(AggregateExpr *expr);
 
   void add_tuple(Tuple *t);
   std::string to_string();
@@ -22,7 +21,6 @@ private:
   Field field_;
   AggrType aggr_type_;
   AttrType attr_type_;
-  bool first_time_{true};
   TupleCell cell_;
   float sum_{0};
   float avg_;

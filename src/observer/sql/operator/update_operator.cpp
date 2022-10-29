@@ -123,18 +123,22 @@ RC UpdateOperator::close() {
 
 RC UpdateOperator::update_data(char *data, const FieldMeta *meta, Value &val) {
   RC rc;
-  if ((rc = try_to_cast_value(meta->type(), val)) != RC::SUCCESS) {
+  if ((rc = try_to_cast_value(meta->type(), meta->nullable(), val)) != RC::SUCCESS) {
     return rc;
   }
-  if (meta->type() == CHARS) {
-    int copy_len = strlen((char *)val.data);
-    if (copy_len > meta->len()) {
-      copy_len = meta->len();
-    }
-    strncpy(data + meta->offset(), (char *)val.data, copy_len);
-    *(static_cast<char *>(data + meta->offset() + copy_len)) = '\0';
+  if (val.type == NULLS) {
+    set_mem_null(data + meta->offset(), meta->type(), meta->len());
   } else {
-    memcpy(data + meta->offset(), val.data, meta->len());
+    if (meta->type() == CHARS) {
+      int copy_len = strlen((char *)val.data);
+      if (copy_len > meta->len()) {
+        copy_len = meta->len();
+      }
+      strncpy(data + meta->offset(), (char *)val.data, copy_len);
+      *(static_cast<char *>(data + meta->offset() + copy_len)) = '\0';
+    } else {
+      memcpy(data + meta->offset(), val.data, meta->len());
+    }
   }
   return RC::SUCCESS;
 }

@@ -133,6 +133,9 @@ Value TupleCell::to_value() const
 {
   Value val;
   switch (attr_type_) {
+    case NULLS:
+      value_init_null(&val);
+      break;
     case INTS:
       value_init_integer(&val, *(int *)data_);
       break;
@@ -163,6 +166,9 @@ float TupleCell::cast_to_number() const
       return static_cast<float>(*(int32_t *)data_);
     case CHARS:
       return std::atof((char *)data_);
+    case NULLS:
+      LOG_ERROR("null type cannot be casted to number");
+      break;
     default:
       LOG_ERROR("unknown attribute type");
       break;

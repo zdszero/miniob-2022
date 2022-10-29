@@ -88,29 +88,33 @@ extern int yydebug;
     STRING_T = 294,
     FLOAT_T = 295,
     DATE_T = 296,
-    EQ = 297,
-    LT = 298,
-    GT = 299,
-    LE = 300,
-    GE = 301,
-    NE = 302,
-    LIKE = 303,
-    NOT = 304,
-    MAX = 305,
-    MIN = 306,
-    AVG = 307,
-    SUM = 308,
-    COUNT = 309,
-    SLASH = 310,
-    PLUS = 311,
-    MINUS = 312,
-    NUMBER = 313,
-    FLOAT = 314,
-    ID = 315,
-    PATH = 316,
-    SSS = 317,
-    STAR = 318,
-    STRING_V = 319
+    TEXT_T = 297,
+    NULL_T = 298,
+    NULLABLE = 299,
+    EQ = 300,
+    LT = 301,
+    GT = 302,
+    LE = 303,
+    GE = 304,
+    NE = 305,
+    LIKE = 306,
+    NOT = 307,
+    ISS = 308,
+    MAX = 309,
+    MIN = 310,
+    AVG = 311,
+    SUM = 312,
+    COUNT = 313,
+    SLASH = 314,
+    PLUS = 315,
+    MINUS = 316,
+    NUMBER = 317,
+    FLOAT = 318,
+    ID = 319,
+    PATH = 320,
+    SSS = 321,
+    STAR = 322,
+    STRING_V = 323
   };
 #endif
 
@@ -129,7 +133,7 @@ union YYSTYPE
   float floats;
 	char *position;
 
-#line 133 "yacc_sql.tab.h"
+#line 137 "yacc_sql.tab.h"
 
 };
 typedef union YYSTYPE YYSTYPE;

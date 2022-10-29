@@ -1,6 +1,11 @@
 #include "sql/operator/aggregate_operator.h"
 #include "common/lang/string.h"
 
+Aggregator::Aggregator(AggregateExpr *expr) : field_(expr->field()), aggr_type_(expr->aggr_type())
+{
+  cell_.set_type(NULLS);
+}
+
 static void collect_aggr_exprs(Expression *expr, std::vector<AggregateExpr *> &aggr_exprs)
 {
   if (expr == nullptr) {
@@ -28,62 +33,81 @@ void Aggregator::add_tuple(Tuple *t)
   }
   switch (aggr_type_) {
     case MAXS: {
-      if (!first_time_) {
-        TupleCell cell;
-        RC rc = t->find_cell(field_, cell);
-        int compare_res = cell.compare(cell_);
-        assert(rc == RC::SUCCESS);
-        if (compare_res > 0) {
-          cell_ = cell;
-        }
-      } else {
-        RC rc = t->find_cell(field_, cell_);
-        assert(rc == RC::SUCCESS);
+      TupleCell cell;
+      RC rc = t->find_cell(field_, cell);
+      if (cell.attr_type() == NULLS) {
+        return;
+      }
+      if (cell_.attr_type() == NULLS) {
+        cell_ = cell;
+        return;
+      }
+      int compare_res = cell.compare(cell_);
+      assert(rc == RC::SUCCESS);
+      if (compare_res > 0) {
+        cell_ = cell;
       }
     } break;
     case MINS: {
-      if (!first_time_) {
-        TupleCell cell;
-        RC rc = t->find_cell(field_, cell);
-        int compare_res = cell.compare(cell_);
-        assert(rc == RC::SUCCESS);
-        if (compare_res < 0) {
-          cell_ = cell;
-        }
-      } else {
-        RC rc = t->find_cell(field_, cell_);
-        assert(rc == RC::SUCCESS);
+      TupleCell cell;
+      RC rc = t->find_cell(field_, cell);
+      if (cell.attr_type() == NULLS) {
+        return;
+      }
+      if (cell_.attr_type() == NULLS) {
+        cell_ = cell;
+        return;
+      }
+      int compare_res = cell.compare(cell_);
+      assert(rc == RC::SUCCESS);
+      if (compare_res < 0) {
+        cell_ = cell;
       }
     } break;
     case AVGS: {
-      count_++;
-      RC rc = t->find_cell(field_, cell_);
+      TupleCell cell;
+      RC rc = t->find_cell(field_, cell);
       assert(rc == RC::SUCCESS);
-      sum_ += cell_.cast_to_number();
+      if (cell.attr_type() != NULLS) {
+        count_++;
+        sum_ += cell.cast_to_number();
+        cell_ = cell;
+      }
     } break;
     case SUMS: {
-      RC rc = t->find_cell(field_, cell_);
+      TupleCell cell;
+      RC rc = t->find_cell(field_, cell);
       assert(rc == RC::SUCCESS);
-      sum_ += cell_.cast_to_number();
+      if (cell.attr_type() != NULLS) {
+        sum_ += cell.cast_to_number();
+        cell_ = cell;
+      }
     } break;
-    case COUNTS:
-      count_++;
-      break;
+    case COUNTS: {
+      TupleCell cell;
+      RC rc = t->find_cell(field_, cell);
+      assert(rc == RC::SUCCESS);
+      if (cell.attr_type() != NULLS) {
+        count_++;
+        cell_ = cell;
+      }
+    } break;
     default:
       LOG_ERROR("unknown aggregation type\n");
       break;
   }
-  first_time_ = false;
 }
 
 TupleCell Aggregator::get_result()
 {
   if (aggr_type_ == MAXS || aggr_type_ == MINS) {
     return cell_;
-  } else if (aggr_type_ == SUMS) {
-    return TupleCell(FLOATS, (char *)&sum_);
   } else if (aggr_type_ == COUNTS) {
     return TupleCell(INTS, (char *)&count_);
+  } else if (cell_.attr_type() == NULLS) {
+    return cell_;
+  } else if (aggr_type_ == SUMS) {
+    return TupleCell(FLOATS, (char *)&sum_);
   } else if (aggr_type_ == AVGS) {
     avg_ = sum_ / count_;
     return TupleCell(FLOATS, (char *)&avg_);

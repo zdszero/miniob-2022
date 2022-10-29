@@ -17,6 +17,7 @@ See the Mulan PSL v2 for more details. */
 #include <algorithm>
 
 #include "common/defs.h"
+#include "storage/common/limits.h"
 #include "storage/common/table.h"
 #include "storage/common/table_meta.h"
 #include "common/log/log.h"
@@ -368,7 +369,7 @@ const TableMeta &Table::table_meta() const
 
 RC Table::make_record(int value_num, const Value *values, char *&record_out)
 {
-  // 检查字段类型是否一致
+  // check field num and types
   if (value_num + table_meta_.sys_field_num() != table_meta_.field_num()) {
     LOG_WARN("Input values don't match the table's schema, table name:%s", table_meta_.name());
     return RC::SCHEMA_FIELD_MISSING;
@@ -378,6 +379,9 @@ RC Table::make_record(int value_num, const Value *values, char *&record_out)
   for (int i = 0; i < value_num; i++) {
     const FieldMeta *field = table_meta_.field(i + normal_field_start_index);
     const Value &value = values[i];
+    if (value.type == NULLS) {
+      continue;
+    }
     if (field->type() != value.type) {
       LOG_ERROR("Invalid value type. table name =%s, field name=%s, type=%d, but given=%d",
           table_meta_.name(),
@@ -388,21 +392,25 @@ RC Table::make_record(int value_num, const Value *values, char *&record_out)
     }
   }
 
-  // 复制所有字段的值
+  // copy values into record
   int record_size = table_meta_.record_size();
   char *record = new char[record_size];
 
   for (int i = 0; i < value_num; i++) {
     const FieldMeta *field = table_meta_.field(i + normal_field_start_index);
     const Value &value = values[i];
-    size_t copy_len = field->len();
-    if (field->type() == CHARS) {
-      const size_t data_len = strlen((const char *)value.data);
-      if (copy_len > data_len) {
-        copy_len = data_len + 1;
+    if (value.type != NULLS) {
+      size_t copy_len = field->len();
+      if (field->type() == CHARS) {
+        const size_t data_len = strlen((const char *)value.data);
+        if (copy_len > data_len) {
+          copy_len = data_len + 1;
+        }
       }
+      memcpy(record + field->offset(), value.data, copy_len);
+    } else {
+      set_mem_null(record + field->offset(), field->type(), field->len());
     }
-    memcpy(record + field->offset(), value.data, copy_len);
   }
 
   record_out = record;

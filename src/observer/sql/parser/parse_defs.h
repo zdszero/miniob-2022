@@ -39,7 +39,9 @@ typedef enum {
   GREAT_THAN,   //">"     5
   STR_LIKE,
   STR_NOT_LIKE,
-  NO_OP
+  IS,
+  IS_NOT,
+  NO_OP,
 } CompOp;
 
 typedef enum { MATH_ADD, MATH_SUB, MATH_MUL, MATH_DIV } MathOp;
@@ -48,6 +50,7 @@ typedef enum { MATH_ADD, MATH_SUB, MATH_MUL, MATH_DIV } MathOp;
 typedef enum {
   UNDEFINED,
   CHARS,
+  TEXTS,
   INTS,
   DATES,
   FLOATS,
@@ -176,6 +179,7 @@ typedef struct {
   char *name;     // Attribute name
   AttrType type;  // Type of attribute
   size_t length;  // Length of attribute
+  int nullable;
 } AttrInfo;
 
 // struct of craete_table
@@ -291,7 +295,7 @@ void join_destroy(Join *join);
 void aggregate_init(Aggregate *aggr, AggrType aggr_type, int is_attr, RelAttr *attr, Value *value);
 void aggregate_destroy(Aggregate *aggr);
 
-void attr_info_init(AttrInfo *attr_info, const char *name, AttrType type, size_t length);
+void attr_info_init(AttrInfo *attr_info, const char *name, AttrType type, size_t length, int nullable);
 void attr_info_destroy(AttrInfo *attr_info);
 
 void selects_init(Selects *selects, ...);
