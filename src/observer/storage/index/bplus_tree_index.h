@@ -43,10 +43,12 @@ public:
 private:
   bool inited_ = false;
   BplusTreeHandler index_handler_;
-  std::vector<const FieldMeta *> field_metas_;
+  std::vector<int> lens_;
+  std::vector<int> offsets_;
+  size_t col_count_;
   RecordFileHandler* file_handler_{nullptr};
 
-  bool is_multi_index() const { return field_metas_.size() > 1; }
+  bool is_multi_index() const { return col_count_ > 1; }
 };
 
 class BplusTreeIndexScanner : public IndexScanner {

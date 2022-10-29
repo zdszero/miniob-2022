@@ -32,8 +32,12 @@ RC BplusTreeIndex::create(const char *file_name, const IndexMeta &index_meta, co
   }
 
   Index::init(index_meta, *field_metas[0]);
-  field_metas_ = field_metas;
   file_handler_ = file_handler;
+  col_count_ = field_metas.size();
+  for (size_t i = 0; i < col_count_; i++) {
+    offsets_.push_back(field_metas[i]->offset());
+    lens_.push_back(field_metas[i]->len());
+  }
 
   RC rc = index_handler_.create(file_name, field_metas[0]->type(), field_metas[0]->len());
   if (RC::SUCCESS != rc) {
@@ -110,9 +114,9 @@ RC BplusTreeIndex::insert_entry(const char *record, const RID *rid)
           Record oldrec;
           file_handler_->get_record(&rid, &oldrec);
           bool all_equal = true;
-          for (const FieldMeta *meta : field_metas_) {
-            int off = meta->offset();
-            int len = meta->len();
+          for (size_t i = 0; i < col_count_; i++) {
+            int off = offsets_[i];
+            int len = lens_[i];
             if (strncmp(record + off, oldrec.data() + off, len) != 0) {
               all_equal = false;
               break;
