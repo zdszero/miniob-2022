@@ -45,6 +45,7 @@ private:
   BplusTreeHandler index_handler_;
   std::vector<int> lens_;
   std::vector<int> offsets_;
+  std::vector<AttrType> types_;
   size_t col_count_;
   RecordFileHandler* file_handler_{nullptr};
 

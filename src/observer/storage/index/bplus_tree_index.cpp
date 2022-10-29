@@ -38,6 +38,7 @@ RC BplusTreeIndex::create(const char *file_name, const IndexMeta &index_meta, co
   for (size_t i = 0; i < col_count_; i++) {
     offsets_.push_back(field_metas[i]->offset());
     lens_.push_back(field_metas[i]->len());
+    types_.push_back(field_metas[i]->type());
   }
 
   RC rc = index_handler_.create(file_name, field_metas[0]->type(), field_metas[0]->len());
@@ -122,6 +123,12 @@ RC BplusTreeIndex::insert_entry(const char *record, const RID *rid)
           for (size_t i = 0; i < col_count_; i++) {
             int off = offsets_[i];
             int len = lens_[i];
+            AttrType attr_type = types_[i];
+            // if any column is null, don't insert into index
+            if (is_mem_null((void *)(record + off), attr_type, len)) {
+              scanner->destroy();
+              return RC::SUCCESS;
+            }
             if (strncmp(record + off, oldrec.data() + off, len) != 0) {
               all_equal = false;
               break;
