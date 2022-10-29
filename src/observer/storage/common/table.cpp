@@ -298,6 +298,11 @@ RC Table::insert_record(Trx *trx, Record *record)
           rc2,
           strrc(rc2));
     }
+    rc2 = trx->delete_record(this, record);
+    if (rc2 != RC::SUCCESS) {
+      LOG_ERROR("Failed to delete record from trx when inserting into indexes fails");
+      return rc2;
+    }
     return rc;
   }
 
@@ -643,7 +648,7 @@ RC Table::create_index(Trx *trx, const char *index_name, char * const attribute_
   // 创建索引相关数据
   BplusTreeIndex *index = new BplusTreeIndex(unique);
   std::string index_file = table_index_file(base_dir_.c_str(), name(), index_name);
-  rc = index->create(index_file.c_str(), new_index_meta, *(field_metas[0])); // fake
+  rc = index->create(index_file.c_str(), new_index_meta, field_metas, record_handler_);
   if (rc != RC::SUCCESS) {
     delete index;
     LOG_ERROR("Failed to create bplus tree index. file name=%s, rc=%d:%s", index_file.c_str(), rc, strrc(rc));

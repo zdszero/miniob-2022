@@ -20,7 +20,8 @@ BplusTreeIndex::~BplusTreeIndex() noexcept
   close();
 }
 
-RC BplusTreeIndex::create(const char *file_name, const IndexMeta &index_meta, const FieldMeta &field_meta)
+RC BplusTreeIndex::create(const char *file_name, const IndexMeta &index_meta, const std::vector<const FieldMeta *> &field_metas,
+    RecordFileHandler *file_handler)
 {
   if (inited_) {
     LOG_WARN("Failed to create index due to the index has been created before. file_name:%s, index:%s, field:%s",
@@ -30,9 +31,11 @@ RC BplusTreeIndex::create(const char *file_name, const IndexMeta &index_meta, co
     return RC::RECORD_OPENNED;
   }
 
-  Index::init(index_meta, field_meta);
+  Index::init(index_meta, *field_metas[0]);
+  field_metas_ = field_metas;
+  file_handler_ = file_handler;
 
-  RC rc = index_handler_.create(file_name, field_meta.type(), field_meta.len());
+  RC rc = index_handler_.create(file_name, field_metas[0]->type(), field_metas[0]->len());
   if (RC::SUCCESS != rc) {
     LOG_WARN("Failed to create index_handler, file_name:%s, index:%s, field:%s, rc:%s",
         file_name,
@@ -96,16 +99,37 @@ RC BplusTreeIndex::insert_entry(const char *record, const RID *rid)
 {
   if (unique_ == 1) {
     RC rc;
-    RID unused_rid;
     IndexScanner *scanner = create_scanner(
       record + field_meta_.offset(), field_meta_.len(), true,
       record + field_meta_.offset(), field_meta_.len(), true
     );
     if (scanner != nullptr) {
-      rc = scanner->next_entry(&unused_rid);
-      if (rc == RC::SUCCESS) {
-        scanner->destroy();
-        return RC::RECORD_DUPLICATE_KEY;
+      if (is_multi_index()) {
+        RID rid;
+        while ((rc = scanner->next_entry(&rid)) == RC::SUCCESS) {
+          Record oldrec;
+          file_handler_->get_record(&rid, &oldrec);
+          bool all_equal = true;
+          for (const FieldMeta *meta : field_metas_) {
+            int off = meta->offset();
+            int len = meta->len();
+            if (strncmp(record + off, oldrec.data() + off, len) != 0) {
+              all_equal = false;
+              break;
+            }
+          }
+          if (all_equal) {
+            scanner->destroy();
+            return RC::RECORD_DUPLICATE_KEY;
+          }
+        }
+      } else {
+        RID unused_rid;
+        rc = scanner->next_entry(&unused_rid);
+        if (rc == RC::SUCCESS) {
+          scanner->destroy();
+          return RC::RECORD_DUPLICATE_KEY;
+        }
       }
       scanner->destroy();
     }
