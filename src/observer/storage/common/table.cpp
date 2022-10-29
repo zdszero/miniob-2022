@@ -714,11 +714,28 @@ RC Table::update_record(Trx *trx, const char *attribute_name, const Value *value
   return RC::GENERIC_ERROR;
 }
 
-RC Table::update_record(Trx *trx, Record *rec) {
-  RC rc = record_handler_->update_record(rec);
+RC Table::update_record(Trx *trx, Record *old_rec, Record *new_rec) {
+  RC rc = delete_entry_of_indexes(old_rec->data(), old_rec->rid(), false);
+  if (rc != RC::SUCCESS) {
+    LOG_ERROR("Failed to delete old indices when updating");
+    return rc;
+  }
+  rc = insert_entry_of_indexes(new_rec->data(), new_rec->rid());
+  if (rc == RC::RECORD_DUPLICATE_KEY) {
+    RC rc2 = insert_entry_of_indexes(old_rec->data(), old_rec->rid());
+    if (rc2 != RC::SUCCESS) {
+      LOG_ERROR("Failed to reinsert old record when updating unique has problem");
+      return rc2;
+    }
+    return rc;
+  } else if (rc != RC::SUCCESS) {
+    LOG_ERROR("Failed to insert new indices when updating");
+    return rc;
+  }
+  rc = record_handler_->update_record(new_rec);
   if (rc != RC::SUCCESS) {
     LOG_ERROR("Failed to delete indexes of record (rid=%d.%d). rc=%d:%s",
-      rec->rid().page_num, rec->rid().slot_num, rc, strrc(rc));
+      new_rec->rid().page_num, new_rec->rid().slot_num, rc, strrc(rc));
     return rc;
   } 
   return rc;

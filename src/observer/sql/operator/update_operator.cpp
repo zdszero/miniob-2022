@@ -77,6 +77,10 @@ RC UpdateOperator::open() {
     RowTuple *row_tuple = static_cast<RowTuple *>(tuple);
     Record &record = row_tuple->record();
     char *record_data = record.data();
+    int record_len = table->table_meta().record_size();
+    char *new_data = (char *)malloc(record_len);
+    memcpy(new_data, record_data, record_len);
+    Record new_record;
     for (size_t pair_num = 0; pair_num < update_stmt_->units().size(); pair_num++) {
       auto &unit = update_stmt_->units()[pair_num];
       if (unit.is_select) {
@@ -91,13 +95,15 @@ RC UpdateOperator::open() {
         }
         update_vals[pair_num] = cell.to_value();
       }
-      rc = update_data(record_data, unit.update_field_meta, update_vals[pair_num]);
+      rc = update_data(new_data, unit.update_field_meta, update_vals[pair_num]);
       if (rc != RC::SUCCESS) {
         return rc;
       }
     }
-    record.set_data(record_data);
-    rc = table->update_record(trx_, &record);
+    new_record.set_data(new_data);
+    new_record.set_rid(record.rid());
+    rc = table->update_record(trx_, &record, &new_record);
+    free(new_data);
     if (rc != RC::SUCCESS) {
       LOG_WARN("failed to update record: %s", strrc(rc));
       return rc;
