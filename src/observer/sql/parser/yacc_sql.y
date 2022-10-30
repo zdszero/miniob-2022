@@ -40,6 +40,9 @@ typedef struct ParserContext {
 	ast* exprs[MAX_NUM][MAX_NUM];
 	AggrType aggr_type[MAX_NUM];
 
+	size_t in_expr_length[MAX_NUM];
+	ast *in_exprs[MAX_NUM][MAX_NUM];
+
   CompOp comp[MAX_NUM];
 } ParserContext;
 
@@ -566,7 +569,29 @@ condition:
 			condition_init_in(&condition, $2, $1, &CONTEXT->sub_select);
 			CONTEXT->conditions[CUR_SEL][CONTEXT->condition_length[CUR_SEL]++] = condition;
 		}
+		| exp is_in in_pair {
+			Condition condition;
+			condition_init_in_exprs(&condition, $2, $1, CONTEXT->in_exprs[CUR_SEL], CONTEXT->in_expr_length[CUR_SEL]);
+			CONTEXT->conditions[CUR_SEL][CONTEXT->condition_length[CUR_SEL]++] = condition;
+			CONTEXT->in_expr_length[CUR_SEL] = 0;
+		}
+		;
+
+
+in_pair:
+		LBRACE in_expr in_expr_list RBRACE
     ;
+
+in_expr:
+		exp {
+			CONTEXT->in_exprs[CUR_SEL][CONTEXT->in_expr_length[CUR_SEL]++] = $1;
+		}
+		;
+
+in_expr_list:
+		/* empty */
+		| COMMA in_expr in_expr_list;
+		;
 
 is_exist:
 		EXISTSS {

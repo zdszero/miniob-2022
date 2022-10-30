@@ -52,6 +52,16 @@ std::string value2string(const Value &value)
   return "";
 }
 
+Value value_copy(const Value &value)
+{
+  Value new_val;
+  new_val.type = value.type;
+  int length = type_length(value.type, value.data);
+  new_val.data = malloc(length);
+  memcpy(new_val.data, value.data, length);
+  return new_val;
+}
+
 size_t type_length(AttrType type, void *data)
 {
   switch (type) {

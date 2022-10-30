@@ -131,6 +131,8 @@ typedef struct _Condition {
   int right_is_select;
   struct _Selects *left_select;
   struct _Selects *right_select;
+  size_t expr_num;
+  ast *exprs[MAX_NUM];
 } Condition;
 
 typedef struct _JoinConditon {
@@ -290,6 +292,7 @@ void condition_init(Condition *condition, CompOp comp, int left_is_select, ast *
     int right_is_select, ast *r, Selects *right_select);
 void condition_init_exists(Condition *condition, int exists, Selects *sub_select);
 void condition_init_in(Condition *condition, int in, ast *expr, Selects *sub_select);
+void condition_init_in_exprs(Condition *condition, int in, ast *in_attr, ast *expr[], int expr_num);
 void condition_destroy(Condition *condition);
 
 void relation_attr_init(RelAttr *relation_attr, const char *relation_name, const char *attribute_name);

@@ -19,6 +19,7 @@ See the Mulan PSL v2 for more details. */
 
 std::string double2string(double v);
 std::string value2string(const Value &value);
+Value value_copy(const Value &value);
 bool is_numeric_type(AttrType type);
 size_t type_length(AttrType type, void *data);
 std::string mathop_to_string(MathOp mathop);

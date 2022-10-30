@@ -18,6 +18,7 @@ See the Mulan PSL v2 for more details. */
 #include "util/ast_util.h"
 #include "util/date.h"
 #include "util/check.h"
+#include "util/util.h"
 #include <cassert>
 
 static RC check_condition(Condition &condition, ExprContext &ctx)
@@ -176,24 +177,41 @@ RC FilterStmt::create_filter_unit(Db *db, ExprContext &ctx, Condition &condition
     filter_unit->set_left(left);
     filter_unit->set_right(right);
   } else if (condition.condition_type == ConditionType::COND_IN) {
-    assert(condition.left_ast != nullptr && condition.left_select != nullptr);
-    Stmt *sub_select_stmt = nullptr;
-    DEFER([sub_select_stmt]() { delete sub_select_stmt; });
-    rc = SelectStmt::create(db, *condition.left_select, sub_select_stmt);
-    if (rc != RC::SUCCESS) {
-      return rc;
-    }
-    SubSelectOperator oper(static_cast<SelectStmt *>(sub_select_stmt), nullptr);
-    std::vector<TupleCell> cells;
-    rc = oper.GetResultList(cells);
-    if (rc != RC::SUCCESS) {
-      return rc;
-    }
     std::vector<Value> new_vals;
-    new_vals.reserve(cells.size());
-    for (const TupleCell &cell : cells) {
-      Value value = cell.to_value();
-      new_vals.push_back(value);
+    assert(condition.left_ast != nullptr);
+    if (condition.expr_num > 0) {
+      assert(condition.left_select == nullptr);
+      for (size_t i = 0; i < condition.expr_num; i++) {
+        assert(condition.exprs[i] != nullptr);
+        if (!evaluate(condition.exprs[i])) {
+          LOG_WARN("cannot evaluate %dth expression in in value list", i);
+          return SQL_SYNTAX;
+        }
+        new_vals.reserve(condition.expr_num);
+        for (size_t i = 0; i < condition.expr_num; i++) {
+          new_vals.push_back(value_copy(condition.exprs[i]->val));
+        }
+      }
+    } else {
+      assert(condition.expr_num == 0);
+      assert(condition.left_select != nullptr);
+      Stmt *sub_select_stmt = nullptr;
+      DEFER([sub_select_stmt]() { delete sub_select_stmt; });
+      rc = SelectStmt::create(db, *condition.left_select, sub_select_stmt);
+      if (rc != RC::SUCCESS) {
+        return rc;
+      }
+      SubSelectOperator oper(static_cast<SelectStmt *>(sub_select_stmt), nullptr);
+      std::vector<TupleCell> cells;
+      rc = oper.GetResultList(cells);
+      if (rc != RC::SUCCESS) {
+        return rc;
+      }
+      new_vals.reserve(cells.size());
+      for (const TupleCell &cell : cells) {
+        Value value = cell.to_value();
+        new_vals.push_back(value);
+      }
     }
     filter_unit = new FilterUnit();
     filter_unit->set_cells(new_vals);

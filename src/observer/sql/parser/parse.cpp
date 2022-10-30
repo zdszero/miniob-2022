@@ -144,6 +144,22 @@ void condition_init_in(Condition *condition, int in, ast *expr, Selects *sub_sel
   condition->left_select = new Selects();
   *condition->left_select = *sub_select;
   condition->left_ast = expr;
+  condition->expr_num = 0;
+}
+
+void condition_init_in_exprs(Condition *condition, int in, ast* in_attr, ast *expr[], int expr_num)
+{
+  if (in) {
+    condition->comp = IN;
+  } else {
+    condition->comp = NOT_IN;
+  }
+  condition->left_ast = in_attr;
+  condition->condition_type = COND_IN;
+  for (int i = 0; i < expr_num; i++) {
+    condition->exprs[i] = expr[i];
+  }
+  condition->expr_num = expr_num;
 }
 
 void condition_destroy(Condition *condition)
@@ -163,7 +179,13 @@ void condition_destroy(Condition *condition)
     selects_destroy(condition->left_select);
   } else {
     assert(condition->condition_type == COND_IN);
-    selects_destroy(condition->left_select);
+    if (condition->expr_num > 0) {
+      for (int i = 0; i < condition->expr_num; i++) {
+        node_destroy(condition->exprs[i]);
+      }
+    } else {
+      selects_destroy(condition->left_select);
+    }
     node_destroy(condition->left_ast);
   }
   condition->left_ast = NULL;
