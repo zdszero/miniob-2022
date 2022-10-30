@@ -92,6 +92,14 @@ std::string comp_to_string(CompOp comp)
       return "is";
     case IS_NOT:
       return "is not";
+    case EXISTS:
+      return "exists";
+    case NOT_EXISTS:
+      return "not exists";
+    case IN:
+      return "in";
+    case NOT_IN:
+      return "not in";
     default:
       break;
   }

@@ -49,7 +49,7 @@ RC DeleteStmt::create(Db *db, Deletes &delete_sql, Stmt *&stmt)
   ExprContext delete_ctx(table);
 
   FilterStmt *filter_stmt = nullptr;
-  RC rc = FilterStmt::create(delete_ctx, delete_sql.conditions, delete_sql.condition_num, filter_stmt);
+  RC rc = FilterStmt::create(db, delete_ctx, delete_sql.conditions, delete_sql.condition_num, filter_stmt);
   if (rc != RC::SUCCESS) {
     LOG_WARN("failed to create filter statement. rc=%d:%s", rc, strrc(rc));
     return rc;

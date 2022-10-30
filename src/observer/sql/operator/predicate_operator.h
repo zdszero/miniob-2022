@@ -45,4 +45,8 @@ private:
   bool do_predicate(Tuple &tuple);
 private:
   FilterStmt *filter_stmt_ = nullptr;
+
+  static bool do_compare_unit(Tuple &tuple, const FilterUnit *filter_unit);
+  static bool do_exists_unit(Tuple &tuple, const FilterUnit *filter_unit);
+  static bool do_in_unit(Tuple &tuple, const FilterUnit *filter_unit);
 };

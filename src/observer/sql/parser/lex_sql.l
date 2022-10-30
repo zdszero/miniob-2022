@@ -90,6 +90,8 @@ QUOTE            [\'\"]
 [Ss][Uu][Mm]                                         RETURN_TOKEN(SUM);
 [Cc][Oo][Uu][Nn][Tt]                                 RETURN_TOKEN(COUNT);
 [Uu][Nn][Ii][Qq][Uu][Ee]                             RETURN_TOKEN(UNIQUE);
+[Ii][Nn]                                             RETURN_TOKEN(INS);
+[Ee][Xx][Ii][Ss][Tt][Ss]                             RETURN_TOKEN(EXISTSS);
 {ID}                                                 yylval->string=strdup(yytext); RETURN_TOKEN(ID);
 "("                                                  RETURN_TOKEN(LBRACE);
 ")"                                                  RETURN_TOKEN(RBRACE);

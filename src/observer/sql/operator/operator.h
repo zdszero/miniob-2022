@@ -29,7 +29,7 @@ enum class OperatorType
   PREDICATE,
   PROJECT,
   TABLE_SCAN,
-  UPDATE
+  UPDATE,
 };
 
 class Record;

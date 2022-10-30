@@ -41,6 +41,10 @@ typedef enum {
   STR_NOT_LIKE,
   IS,
   IS_NOT,
+  EXISTS,
+  NOT_EXISTS,
+  IN,
+  NOT_IN,
   NO_OP,
 } CompOp;
 
@@ -112,7 +116,14 @@ typedef struct ast {
 
 struct _Selects;
 
+typedef enum {
+  COND_COMPARE,
+  COND_EXISTS,
+  COND_IN,
+} ConditionType;
+
 typedef struct _Condition {
+  ConditionType condition_type;
   CompOp comp;
   ast *left_ast;
   ast *right_ast;
@@ -277,6 +288,8 @@ void node_destroy(ast *n);
 
 void condition_init(Condition *condition, CompOp comp, int left_is_select, ast *l, Selects *left_select,
     int right_is_select, ast *r, Selects *right_select);
+void condition_init_exists(Condition *condition, int exists, Selects *sub_select);
+void condition_init_in(Condition *condition, int in, ast *expr, Selects *sub_select);
 void condition_destroy(Condition *condition);
 
 void relation_attr_init(RelAttr *relation_attr, const char *relation_name, const char *attribute_name);

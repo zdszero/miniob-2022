@@ -84,7 +84,7 @@ RC UpdateStmt::create(Db *db, Updates &updates_sql, Stmt *&stmt)
   // filter
   FilterStmt *filter_stmt = nullptr;
   ExprContext update_ctx(table);
-  RC rc = FilterStmt::create(update_ctx, updates_sql.conditions, updates_sql.condition_num, filter_stmt);
+  RC rc = FilterStmt::create(db, update_ctx, updates_sql.conditions, updates_sql.condition_num, filter_stmt);
   if (rc != RC::SUCCESS) {
     LOG_WARN("cannot construct filter stmt");
     return rc;

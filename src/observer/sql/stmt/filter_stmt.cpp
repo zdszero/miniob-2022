@@ -85,7 +85,7 @@ FilterStmt::~FilterStmt()
   filter_units_.clear();
 }
 
-RC FilterStmt::create(ExprContext &ctx, Condition *conditions, int condition_num, FilterStmt *&stmt)
+RC FilterStmt::create(Db *db, ExprContext &ctx, Condition *conditions, int condition_num, FilterStmt *&stmt)
 {
   RC rc = RC::SUCCESS;
   stmt = nullptr;
@@ -93,7 +93,7 @@ RC FilterStmt::create(ExprContext &ctx, Condition *conditions, int condition_num
   FilterStmt *tmp_stmt = new FilterStmt();
   for (int i = 0; i < condition_num; i++) {
     FilterUnit *filter_unit = nullptr;
-    rc = create_filter_unit(ctx, conditions[i], filter_unit);
+    rc = create_filter_unit(db, ctx, conditions[i], filter_unit);
     if (rc != RC::SUCCESS) {
       delete tmp_stmt;
       LOG_WARN("failed to create filter unit. condition index=%d", i);
@@ -106,7 +106,7 @@ RC FilterStmt::create(ExprContext &ctx, Condition *conditions, int condition_num
   return rc;
 }
 
-RC FilterStmt::create_filter_unit(ExprContext &ctx, Condition &condition, FilterUnit *&filter_unit)
+RC FilterStmt::create_filter_unit(Db *db, ExprContext &ctx, Condition &condition, FilterUnit *&filter_unit)
 {
   RC rc = RC::SUCCESS;
 
@@ -116,24 +116,80 @@ RC FilterStmt::create_filter_unit(ExprContext &ctx, Condition &condition, Filter
     return RC::INVALID_ARGUMENT;
   }
 
-
   rc = check_condition(condition, ctx);
   if (rc != RC::SUCCESS) {
     return rc;
   }
 
-  Expression *left = ExprFactory::create(condition.left_ast, ctx);
-  Expression *right = ExprFactory::create(condition.right_ast, ctx);
+  if (condition.condition_type == COND_COMPARE) {
 
-  rc = check_date_valid(left, right);
-  if (rc != RC::SUCCESS) {
-    return rc;
+    Expression *left = nullptr;
+    Expression *right = nullptr;
+    Stmt *left_select = nullptr;
+    Stmt *right_select = nullptr;
+
+    if (!condition.left_is_select) {
+      left = ExprFactory::create(condition.left_ast, ctx);
+    } else {
+      rc = SelectStmt::create(db, *condition.left_select, left_select);
+      if (rc != RC::SUCCESS) {
+        delete left_select;
+        delete right_select;
+        return rc;
+      }
+    }
+    if (!condition.right_is_select) {
+      right = ExprFactory::create(condition.right_ast, ctx);
+    } else {
+      rc = SelectStmt::create(db, *condition.right_select, right_select);
+      if (rc != RC::SUCCESS) {
+        delete left_select;
+        delete right_select;
+        return rc;
+      }
+    }
+
+    if (left && right) {
+      rc = check_date_valid(left, right);
+      if (rc != RC::SUCCESS) {
+        delete left;
+        delete right;
+        return rc;
+      }
+    }
+
+    filter_unit = new FilterUnit();
+    if (left) {
+      filter_unit->set_left(left);
+    } else {
+      filter_unit->set_left_select(static_cast<SelectStmt *>(left_select));
+    }
+    if (right) {
+      filter_unit->set_right(right);
+    } else {
+      filter_unit->set_right_select(static_cast<SelectStmt *>(right_select));
+    }
+  } else {
+    assert(condition.condition_type == COND_IN
+        || condition.condition_type == COND_EXISTS);
+    Stmt *sub_select_stmt = nullptr;
+    if (condition.left_select->expr_num != 1) {
+      LOG_WARN("select more than 1 attributes in update-select is wrong");
+      return RC::SQL_SYNTAX;
+    }
+    rc = SelectStmt::create(db, *condition.left_select, sub_select_stmt);
+    if (rc != RC::SUCCESS) {
+      delete sub_select_stmt;
+      return rc;
+    }
+    filter_unit = new FilterUnit();
+    filter_unit->set_left_select(static_cast<SelectStmt *>(sub_select_stmt));
+    if (condition.condition_type == COND_IN) {
+      filter_unit->set_left(ExprFactory::create(condition.left_ast, ctx));
+    }
   }
-
-  filter_unit = new FilterUnit;
-  filter_unit->set_comp(comp);
-  filter_unit->set_left(left);
-  filter_unit->set_right(right);
+  filter_unit->set_comp(condition.comp);
+  filter_unit->set_condition_type(condition.condition_type);
 
   return rc;
 }

@@ -19,6 +19,7 @@ See the Mulan PSL v2 for more details. */
 #include "common/log/log.h"
 #include "rc.h"
 #include "sql/parser/parse_defs.h"
+#include "sql/stmt/select_stmt.h"
 #include "sql/stmt/stmt.h"
 #include "sql/expr/expression.h"
 
@@ -38,6 +39,14 @@ public:
     if (right_) {
       delete right_;
       right_ = nullptr;
+    }
+    if (left_select_) {
+      delete left_select_;
+      left_select_ = nullptr;
+    }
+    if (right_select_) {
+      delete right_select_;
+      right_select_ = nullptr;
     }
   }
 
@@ -59,6 +68,30 @@ public:
   {
     right_ = expr;
   }
+  void set_left_select(SelectStmt *left_select)
+  {
+    left_select_ = left_select;
+  }
+  void set_right_select(SelectStmt *right_select)
+  {
+    right_select_ = right_select;
+  }
+  void set_condition_type(ConditionType condition_type)
+  {
+    condition_type_ = condition_type;
+  }
+  ConditionType condition_type() const
+  {
+    return condition_type_;
+  }
+  SelectStmt *left_select() const
+  {
+    return left_select_;
+  }
+  SelectStmt *right_select() const
+  {
+    return right_select_;
+  }
   Expression *left() const
   {
     return left_;
@@ -66,6 +99,16 @@ public:
   Expression *right() const
   {
     return right_;
+  }
+  bool left_is_select() const
+  {
+    return left_select_ != nullptr
+      && left_ == nullptr;
+  }
+  bool right_is_select() const
+  {
+    return right_select_ != nullptr
+      && right_ == nullptr;
   }
   void swap_left_right()
   {
@@ -100,8 +143,11 @@ public:
 
 private:
   CompOp comp_ = NO_OP;
+  ConditionType condition_type_;
   Expression *left_ = nullptr;
   Expression *right_ = nullptr;
+  SelectStmt *left_select_ = nullptr;
+  SelectStmt *right_select_ = nullptr;
 };
 
 class FilterStmt {
@@ -116,9 +162,9 @@ public:
   }
 
 public:
-  static RC create(ExprContext &ctx, Condition *conditions, int condition_num, FilterStmt *&stmt);
+  static RC create(Db *db, ExprContext &ctx, Condition *conditions, int condition_num, FilterStmt *&stmt);
 
-  static RC create_filter_unit(ExprContext &ctx, Condition &condition, FilterUnit *&filter_unit);
+  static RC create_filter_unit(Db *db, ExprContext &ctx, Condition &condition, FilterUnit *&filter_unit);
 
 private:
   std::vector<FilterUnit *> filter_units_;  // 默认当前都是AND关系

@@ -12,8 +12,10 @@ See the Mulan PSL v2 for more details. */
 // Created by WangYunlai on 2022/6/27.
 //
 
+#include "common/lang/defer.h"
 #include "common/log/log.h"
 #include "sql/operator/predicate_operator.h"
+#include "sql/operator/subselect_operator.h"
 #include "storage/record/record.h"
 #include "storage/common/field.h"
 
@@ -58,15 +60,31 @@ Tuple *PredicateOperator::current_tuple()
   return children_[0]->current_tuple();
 }
 
-bool PredicateOperator::do_filter_unit(Tuple &tuple, const FilterUnit *filter_unit)
+bool PredicateOperator::do_compare_unit(Tuple &tuple, const FilterUnit *filter_unit)
 {
-  Expression *left_expr = filter_unit->left();
-  Expression *right_expr = filter_unit->right();
   CompOp comp = filter_unit->comp();
   TupleCell left_cell;
   TupleCell right_cell;
-  left_expr->get_value(tuple, left_cell);
-  right_expr->get_value(tuple, right_cell);
+  RC rc;
+
+  SubSelectOperator *oper = nullptr;
+  DEFER([oper]() { delete oper; });
+  if (filter_unit->left_is_select()) {
+    oper = new SubSelectOperator(filter_unit->left_select(), nullptr);
+    rc = oper->GetOneResult(left_cell);
+    assert(rc == RC::SUCCESS);
+  } else {
+    RC rc = filter_unit->left()->get_value(tuple, left_cell);
+    assert(rc == RC::SUCCESS);
+  }
+  if (filter_unit->right_is_select()) {
+    oper = new SubSelectOperator(filter_unit->right_select(), nullptr);
+    oper->GetOneResult(right_cell);
+    assert(rc == RC::SUCCESS);
+  } else {
+    RC rc = filter_unit->right()->get_value(tuple, right_cell);
+    assert(rc == RC::SUCCESS);
+  }
 
   if (comp == IS) {
     return left_cell.attr_type() == NULLS;
@@ -111,6 +129,69 @@ bool PredicateOperator::do_filter_unit(Tuple &tuple, const FilterUnit *filter_un
     } break;
   }
   return filter_result;
+}
+
+bool PredicateOperator::do_exists_unit(Tuple &tuple, const FilterUnit *filter_unit)
+{
+  printf("do exist unit\n");
+  CompOp comp = filter_unit->comp();
+  assert(comp == EXISTS || comp == NOT_EXISTS);
+  SubSelectOperator oper(filter_unit->left_select(), nullptr);
+  bool ret = true;
+  RC rc = oper.HasResult(ret);
+  if (rc != RC::SUCCESS) {
+    LOG_ERROR("Failed to do subselect in exist predicate");
+    ret = false;
+  }
+  if (comp == EXISTS) {
+    return ret;
+  } else {
+    return !ret;
+  }
+}
+
+bool PredicateOperator::do_in_unit(Tuple &tuple, const FilterUnit *filter_unit)
+{
+  printf("do in unit\n");
+  CompOp comp = filter_unit->comp();
+  assert(comp == IN || comp == NOT_IN);
+  TupleCell cell;
+  RC rc = filter_unit->left()->get_value(tuple, cell);
+  if (rc != RC::SUCCESS) {
+    LOG_ERROR("Failed to get value in predicate in");
+    return false;
+  }
+  SubSelectOperator oper(filter_unit->left_select(), nullptr);
+  std::vector<TupleCell> cells;
+  rc = oper.GetResultList(cells);
+  if (rc != RC::SUCCESS) {
+    LOG_ERROR("Failed to do subselect in exist predicate");
+    return false;
+  }
+  bool ret = false;
+  for (const TupleCell &c : cells) {
+    if (c == cell) {
+      ret = true;
+      break;
+    }
+  }
+  if (comp == IN) {
+    return ret;
+  } else {
+    return !ret;
+  }
+}
+
+bool PredicateOperator::do_filter_unit(Tuple &tuple, const FilterUnit *filter_unit)
+{
+  ConditionType cond = filter_unit->condition_type();
+  if (cond == ConditionType::COND_COMPARE) {
+    return do_compare_unit(tuple, filter_unit);
+  } else if (cond == ConditionType::COND_EXISTS) {
+    return do_exists_unit(tuple, filter_unit);
+  } else {
+    return do_in_unit(tuple, filter_unit);
+  }
 }
 
 bool PredicateOperator::do_predicate(Tuple &tuple)

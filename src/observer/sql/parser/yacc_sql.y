@@ -23,6 +23,7 @@ typedef struct ParserContext {
 	Selects left_sub_select;
 	Selects right_sub_select;
 	Selects update_select;
+	Selects sub_select;
 
 	// conditions
   size_t condition_length[MAX_NUM];
@@ -100,7 +101,7 @@ void clear_selection(ParserContext *context, size_t select_idx)
 // types
 %token INT_T STRING_T FLOAT_T DATE_T TEXT_T NULL_T NULLABLE
 // comps
-%token EQ LT GT LE GE NE LIKE NOT ISS
+%token EQ LT GT LE GE NE LIKE NOT ISS EXISTSS INS
 // aggregation functions
 %token MAX MIN AVG SUM COUNT
 // math operator
@@ -134,6 +135,8 @@ void clear_selection(ParserContext *context, size_t select_idx)
 %type <ast1> exp;
 %type <ast1> aggr_func;
 %type <number> nullable;
+%type <number> is_exist;
+%type <number> is_in;
 
 // operator precedence
 %left PLUS MINUS
@@ -540,24 +543,59 @@ condition:
 		}
 		| exp comOp right_sub_select {
 			Condition condition;
-			condition_init(&condition, CONTEXT->comp[CUR_SEL], 0, $1, NULL, 0, NULL, &CONTEXT->right_sub_select);
+			condition_init(&condition, CONTEXT->comp[CUR_SEL], 0, $1, NULL, 1, NULL, &CONTEXT->right_sub_select);
 			CONTEXT->conditions[CUR_SEL][CONTEXT->condition_length[CUR_SEL]++] = condition;
 		}
 		| left_sub_select comOp exp {
 			Condition condition;
-			condition_init(&condition, CONTEXT->comp[CUR_SEL], 0, NULL, &CONTEXT->left_sub_select, 0, $3, NULL);
+			condition_init(&condition, CONTEXT->comp[CUR_SEL], 1, NULL, &CONTEXT->left_sub_select, 0, $3, NULL);
 			CONTEXT->conditions[CUR_SEL][CONTEXT->condition_length[CUR_SEL]++] = condition;
 		}
 		| left_sub_select comOp right_sub_select {
 			Condition condition;
-			condition_init(&condition, CONTEXT->comp[CUR_SEL], 0, NULL, &CONTEXT->left_sub_select, 0, NULL, &CONTEXT->right_sub_select);
+			condition_init(&condition, CONTEXT->comp[CUR_SEL], 1, NULL, &CONTEXT->left_sub_select, 1, NULL, &CONTEXT->right_sub_select);
+			CONTEXT->conditions[CUR_SEL][CONTEXT->condition_length[CUR_SEL]++] = condition;
+		}
+		| is_exist sub_select {
+			Condition condition;
+			condition_init_exists(&condition, $1, &CONTEXT->sub_select);
+			CONTEXT->conditions[CUR_SEL][CONTEXT->condition_length[CUR_SEL]++] = condition;
+		}
+		| exp is_in sub_select {
+			Condition condition;
+			condition_init_in(&condition, $2, $1, &CONTEXT->sub_select);
 			CONTEXT->conditions[CUR_SEL][CONTEXT->condition_length[CUR_SEL]++] = condition;
 		}
     ;
 
+is_exist:
+		EXISTSS {
+			$$ = 1;
+		}
+		| NOT EXISTSS {
+			$$ = 0;
+		}
+
+is_in:
+		INS {
+			$$ = 1;
+		}
+		| NOT INS {
+			$$ = 0;
+		}
+		;
+
 update_select:
 		LBRACE select_body RBRACE {
 			CONTEXT->update_select = CONTEXT->selects[CUR_SEL];
+			clear_selection(CONTEXT, CUR_SEL);
+			CONTEXT->select_length--;
+		}
+		;
+
+sub_select:
+		LBRACE select_body RBRACE {
+			CONTEXT->sub_select = CONTEXT->selects[CUR_SEL];
 			clear_selection(CONTEXT, CUR_SEL);
 			CONTEXT->select_length--;
 		}

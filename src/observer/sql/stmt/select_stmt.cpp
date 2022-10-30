@@ -35,6 +35,7 @@ SelectStmt::~SelectStmt()
 
 void SelectStmt::Print() const
 {
+  printf("------------------\n");
   auto print_units = [](const std::vector<FilterUnit *> &units) {
     for (FilterUnit *unit : units) {
       printf("comp: %s\n", comp_to_string(unit->comp()).c_str());
@@ -110,7 +111,7 @@ static void collect_exprs(Selects &select_sql, const ExprContext &ctx, std::vect
 {
   for (size_t i = 0; i < select_sql.expr_num; i++) {
     ast *t = select_sql.exprs[i];
-    std::cout << ast_to_string(t) << std::endl;
+    // std::cout << ast_to_string(t) << std::endl;
     assert(t->nodetype != NodeType::UNDEFINEDN);
     if (t->nodetype == NodeType::ATTRN) {
       collect_attr_expr(t, ctx, exprs);
@@ -157,7 +158,7 @@ static RC collect_join_stmts(Db *db, Selects &select_sql, Table *default_table, 
 
     FilterStmt *join_filter;
     // RC rc = FilterStmt::create(db, default_table, &join_table_map, join.conditions, join.condition_num, join_filter);
-    RC rc = FilterStmt::create(join_ctx, join.conditions, join.condition_num, join_filter);
+    RC rc = FilterStmt::create(db, join_ctx, join.conditions, join.condition_num, join_filter);
     if (rc != RC::SUCCESS) {
       LOG_WARN("fail to create filter for join on table %s\n", join.join_table_name);
       return rc;
@@ -175,7 +176,6 @@ RC SelectStmt::create(Db *db, Selects &select_sql, Stmt *&stmt)
     LOG_WARN("invalid argument. db is null");
     return RC::INVALID_ARGUMENT;
   }
-  printf("------------------\n");
 
   // collect tables in `from` statement and set default table
   ExprContext select_ctx;
@@ -222,7 +222,7 @@ RC SelectStmt::create(Db *db, Selects &select_sql, Stmt *&stmt)
 
   // create filter statement in `where` statement
   FilterStmt *filter_stmt = nullptr;
-  rc = FilterStmt::create(select_ctx, select_sql.conditions, select_sql.condition_num, filter_stmt);
+  rc = FilterStmt::create(db, select_ctx, select_sql.conditions, select_sql.condition_num, filter_stmt);
   if (rc != RC::SUCCESS) {
     LOG_WARN("cannot construct filter stmt");
     return rc;
