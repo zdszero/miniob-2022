@@ -67,24 +67,10 @@ bool PredicateOperator::do_compare_unit(Tuple &tuple, const FilterUnit *filter_u
   TupleCell right_cell;
   RC rc;
 
-  SubSelectOperator *oper = nullptr;
-  DEFER([oper]() { delete oper; });
-  if (filter_unit->left_is_select()) {
-    oper = new SubSelectOperator(filter_unit->left_select(), nullptr);
-    rc = oper->GetOneResult(left_cell);
-    assert(rc == RC::SUCCESS);
-  } else {
-    RC rc = filter_unit->left()->get_value(tuple, left_cell);
-    assert(rc == RC::SUCCESS);
-  }
-  if (filter_unit->right_is_select()) {
-    oper = new SubSelectOperator(filter_unit->right_select(), nullptr);
-    oper->GetOneResult(right_cell);
-    assert(rc == RC::SUCCESS);
-  } else {
-    RC rc = filter_unit->right()->get_value(tuple, right_cell);
-    assert(rc == RC::SUCCESS);
-  }
+  rc = filter_unit->left()->get_value(tuple, left_cell);
+  assert(rc == RC::SUCCESS);
+  rc = filter_unit->right()->get_value(tuple, right_cell);
+  assert(rc == RC::SUCCESS);
 
   if (comp == IS) {
     return left_cell.attr_type() == NULLS;
@@ -133,16 +119,9 @@ bool PredicateOperator::do_compare_unit(Tuple &tuple, const FilterUnit *filter_u
 
 bool PredicateOperator::do_exists_unit(Tuple &tuple, const FilterUnit *filter_unit)
 {
-  printf("do exist unit\n");
   CompOp comp = filter_unit->comp();
   assert(comp == EXISTS || comp == NOT_EXISTS);
-  SubSelectOperator oper(filter_unit->left_select(), nullptr);
-  bool ret = true;
-  RC rc = oper.HasResult(ret);
-  if (rc != RC::SUCCESS) {
-    LOG_ERROR("Failed to do subselect in exist predicate");
-    ret = false;
-  }
+  bool ret = filter_unit->exists();
   if (comp == EXISTS) {
     return ret;
   } else {
@@ -152,7 +131,6 @@ bool PredicateOperator::do_exists_unit(Tuple &tuple, const FilterUnit *filter_un
 
 bool PredicateOperator::do_in_unit(Tuple &tuple, const FilterUnit *filter_unit)
 {
-  printf("do in unit\n");
   CompOp comp = filter_unit->comp();
   assert(comp == IN || comp == NOT_IN);
   TupleCell cell;
@@ -161,15 +139,11 @@ bool PredicateOperator::do_in_unit(Tuple &tuple, const FilterUnit *filter_unit)
     LOG_ERROR("Failed to get value in predicate in");
     return false;
   }
-  SubSelectOperator oper(filter_unit->left_select(), nullptr);
-  std::vector<TupleCell> cells;
-  rc = oper.GetResultList(cells);
-  if (rc != RC::SUCCESS) {
-    LOG_ERROR("Failed to do subselect in exist predicate");
+  if (cell.attr_type() == NULLS) {
     return false;
   }
-  bool ret = false;
-  for (const TupleCell &c : cells) {
+  bool ret  = false;
+  for (const TupleCell &c : filter_unit->in_cells()) {
     if (c == cell) {
       ret = true;
       break;

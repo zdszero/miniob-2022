@@ -40,13 +40,8 @@ public:
       delete right_;
       right_ = nullptr;
     }
-    if (left_select_) {
-      delete left_select_;
-      left_select_ = nullptr;
-    }
-    if (right_select_) {
-      delete right_select_;
-      right_select_ = nullptr;
+    for (Value &v : cell_values_) {
+      value_destroy(&v);
     }
   }
 
@@ -68,14 +63,6 @@ public:
   {
     right_ = expr;
   }
-  void set_left_select(SelectStmt *left_select)
-  {
-    left_select_ = left_select;
-  }
-  void set_right_select(SelectStmt *right_select)
-  {
-    right_select_ = right_select;
-  }
   void set_condition_type(ConditionType condition_type)
   {
     condition_type_ = condition_type;
@@ -84,14 +71,6 @@ public:
   {
     return condition_type_;
   }
-  SelectStmt *left_select() const
-  {
-    return left_select_;
-  }
-  SelectStmt *right_select() const
-  {
-    return right_select_;
-  }
   Expression *left() const
   {
     return left_;
@@ -99,16 +78,6 @@ public:
   Expression *right() const
   {
     return right_;
-  }
-  bool left_is_select() const
-  {
-    return left_select_ != nullptr
-      && left_ == nullptr;
-  }
-  bool right_is_select() const
-  {
-    return right_select_ != nullptr
-      && right_ == nullptr;
   }
   void swap_left_right()
   {
@@ -140,14 +109,30 @@ public:
       }
     }
   }
+  void set_exists(bool exists) {
+    exists_ = exists;
+  }
+  bool exists() const { return exists_; }
+  const std::vector<TupleCell> &in_cells() const
+  {
+    return in_cells_;
+  }
+  void set_cells(const std::vector<Value> &values)
+  {
+    cell_values_ = values;
+    for (const Value &v : values) {
+      in_cells_.push_back(TupleCell(v));
+    }
+  }
 
 private:
   CompOp comp_ = NO_OP;
   ConditionType condition_type_;
   Expression *left_ = nullptr;
   Expression *right_ = nullptr;
-  SelectStmt *left_select_ = nullptr;
-  SelectStmt *right_select_ = nullptr;
+  bool exists_{false};
+  std::vector<TupleCell> in_cells_;
+  std::vector<Value> cell_values_;
 };
 
 class FilterStmt {

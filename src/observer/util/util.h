@@ -20,6 +20,7 @@ See the Mulan PSL v2 for more details. */
 std::string double2string(double v);
 std::string value2string(const Value &value);
 bool is_numeric_type(AttrType type);
+size_t type_length(AttrType type, void *data);
 std::string mathop_to_string(MathOp mathop);
 std::string aggregate_func_string(AggrType aggr_type);
 std::string comp_to_string(CompOp comp);

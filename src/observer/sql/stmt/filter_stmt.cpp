@@ -5,11 +5,13 @@ See the Mulan PSL v2 for more details. */
 // Created by Wangyunlai on 2022/5/22.
 //
 
+#include "common/lang/defer.h"
 #include "rc.h"
 #include "common/log/log.h"
 #include "common/lang/string.h"
 #include "sql/expr/expression.h"
 #include "sql/expr/tuple.h"
+#include "sql/operator/subselect_operator.h"
 #include "sql/stmt/filter_stmt.h"
 #include "storage/common/db.h"
 #include "storage/common/table.h"
@@ -125,28 +127,40 @@ RC FilterStmt::create_filter_unit(Db *db, ExprContext &ctx, Condition &condition
 
     Expression *left = nullptr;
     Expression *right = nullptr;
-    Stmt *left_select = nullptr;
-    Stmt *right_select = nullptr;
 
-    if (!condition.left_is_select) {
-      left = ExprFactory::create(condition.left_ast, ctx);
-    } else {
+    if (condition.left_is_select) {
+      Stmt *left_select = nullptr;
+      DEFER([left_select]() { delete left_select; });
       rc = SelectStmt::create(db, *condition.left_select, left_select);
       if (rc != RC::SUCCESS) {
-        delete left_select;
-        delete right_select;
         return rc;
       }
-    }
-    if (!condition.right_is_select) {
-      right = ExprFactory::create(condition.right_ast, ctx);
+      SubSelectOperator oper(static_cast<SelectStmt *>(left_select), nullptr);
+      TupleCell left_cell;
+      rc = oper.GetOneResult(left_cell);
+      if (rc != RC::SUCCESS) {
+        return rc;
+      }
+      left = new ValueExpr(left_cell.to_value()); // free?
     } else {
+      left = ExprFactory::create(condition.left_ast, ctx);
+    }
+    if (condition.right_is_select) {
+      Stmt *right_select = nullptr;
+      DEFER([right_select]() { delete right_select; });
       rc = SelectStmt::create(db, *condition.right_select, right_select);
       if (rc != RC::SUCCESS) {
-        delete left_select;
-        delete right_select;
         return rc;
       }
+      SubSelectOperator oper(static_cast<SelectStmt *>(right_select), nullptr);
+      TupleCell right_cell;
+      rc = oper.GetOneResult(right_cell);
+      if (rc != RC::SUCCESS) {
+        return rc;
+      }
+      right = new ValueExpr(right_cell.to_value());
+    } else {
+      right = ExprFactory::create(condition.right_ast, ctx);
     }
 
     if (left && right) {
@@ -159,34 +173,48 @@ RC FilterStmt::create_filter_unit(Db *db, ExprContext &ctx, Condition &condition
     }
 
     filter_unit = new FilterUnit();
-    if (left) {
-      filter_unit->set_left(left);
-    } else {
-      filter_unit->set_left_select(static_cast<SelectStmt *>(left_select));
-    }
-    if (right) {
-      filter_unit->set_right(right);
-    } else {
-      filter_unit->set_right_select(static_cast<SelectStmt *>(right_select));
-    }
-  } else {
-    assert(condition.condition_type == COND_IN
-        || condition.condition_type == COND_EXISTS);
+    filter_unit->set_left(left);
+    filter_unit->set_right(right);
+  } else if (condition.condition_type == ConditionType::COND_IN) {
+    assert(condition.left_ast != nullptr && condition.left_select != nullptr);
     Stmt *sub_select_stmt = nullptr;
-    if (condition.left_select->expr_num != 1) {
-      LOG_WARN("select more than 1 attributes in update-select is wrong");
-      return RC::SQL_SYNTAX;
-    }
+    DEFER([sub_select_stmt]() { delete sub_select_stmt; });
     rc = SelectStmt::create(db, *condition.left_select, sub_select_stmt);
     if (rc != RC::SUCCESS) {
-      delete sub_select_stmt;
+      return rc;
+    }
+    SubSelectOperator oper(static_cast<SelectStmt *>(sub_select_stmt), nullptr);
+    std::vector<TupleCell> cells;
+    rc = oper.GetResultList(cells);
+    if (rc != RC::SUCCESS) {
+      return rc;
+    }
+    std::vector<Value> new_vals;
+    new_vals.reserve(cells.size());
+    for (const TupleCell &cell : cells) {
+      Value value = cell.to_value();
+      new_vals.push_back(value);
+    }
+    filter_unit = new FilterUnit();
+    filter_unit->set_cells(new_vals);
+    filter_unit->set_left(ExprFactory::create(condition.left_ast, ctx));
+  } else {
+    assert(condition.left_select != nullptr);
+    Stmt *sub_select_stmt = nullptr;
+    DEFER([sub_select_stmt]() { delete sub_select_stmt; });
+    rc = SelectStmt::create(db, *condition.left_select, sub_select_stmt);
+    if (rc != RC::SUCCESS) {
+      return rc;
+    }
+    SubSelectOperator oper(static_cast<SelectStmt *>(sub_select_stmt), nullptr);
+    std::vector<TupleCell> cells;
+    bool exists;
+    rc = oper.HasResult(exists);
+    if (rc != RC::SUCCESS) {
       return rc;
     }
     filter_unit = new FilterUnit();
-    filter_unit->set_left_select(static_cast<SelectStmt *>(sub_select_stmt));
-    if (condition.condition_type == COND_IN) {
-      filter_unit->set_left(ExprFactory::create(condition.left_ast, ctx));
-    }
+    filter_unit->set_exists(exists);
   }
   filter_unit->set_comp(condition.comp);
   filter_unit->set_condition_type(condition.condition_type);

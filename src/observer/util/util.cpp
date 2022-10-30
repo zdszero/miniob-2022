@@ -52,6 +52,24 @@ std::string value2string(const Value &value)
   return "";
 }
 
+size_t type_length(AttrType type, void *data)
+{
+  switch (type) {
+    case NULLS:
+      return 0;
+    case INTS:
+      return sizeof(int);
+    case FLOATS:
+      return sizeof(float);
+    case DATES:
+      return sizeof(int32_t);
+    case CHARS:
+      return strlen((char *)data);
+    default:
+      return 0;
+  }
+}
+
 std::string mathop_to_string(MathOp mathop)
 {
   switch (mathop) {

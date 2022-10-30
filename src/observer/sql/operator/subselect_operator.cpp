@@ -13,7 +13,6 @@ SubSelectOperator::~SubSelectOperator()
 
 RC SubSelectOperator::HasResult(bool &ret) const
 {
-  assert(select_stmt_->exprs().size() == 1);
   RC rc = RC::SUCCESS;
   if (oper_->type() == OperatorType::AGGREGATE) {
     AggregateOperator *aggr_oper = static_cast<AggregateOperator *>(oper_);
@@ -44,8 +43,11 @@ RC SubSelectOperator::HasResult(bool &ret) const
 
 RC SubSelectOperator::GetOneResult(TupleCell &cell) const
 {
-  assert(select_stmt_->exprs().size() == 1);
   RC rc = RC::SUCCESS;
+  if (select_stmt_->exprs().size() != 1) {
+    LOG_WARN("select more than one fields in sub-select");
+    return RC::SQL_SYNTAX;
+  }
   if (oper_->type() == OperatorType::AGGREGATE) {
     AggregateOperator *aggr_oper = static_cast<AggregateOperator *>(oper_);
     RC rc = aggr_oper->open();

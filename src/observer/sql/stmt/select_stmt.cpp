@@ -227,6 +227,7 @@ RC SelectStmt::create(Db *db, Selects &select_sql, Stmt *&stmt)
     LOG_WARN("cannot construct filter stmt");
     return rc;
   }
+  printf("filter created\n");
 
   // everything alright
   SelectStmt *select_stmt = new SelectStmt();

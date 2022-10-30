@@ -103,14 +103,14 @@ TupleCell Aggregator::get_result()
   if (aggr_type_ == MAXS || aggr_type_ == MINS) {
     return cell_;
   } else if (aggr_type_ == COUNTS) {
-    return TupleCell(INTS, (char *)&count_);
+    return TupleCell(INTS, (char *)&count_, sizeof(int));
   } else if (cell_.attr_type() == NULLS) {
     return cell_;
   } else if (aggr_type_ == SUMS) {
-    return TupleCell(FLOATS, (char *)&sum_);
+    return TupleCell(FLOATS, (char *)&sum_, sizeof(float));
   } else if (aggr_type_ == AVGS) {
     avg_ = sum_ / count_;
-    return TupleCell(FLOATS, (char *)&avg_);
+    return TupleCell(FLOATS, (char *)&avg_, sizeof(float));
   } else {
     assert(false);
   }

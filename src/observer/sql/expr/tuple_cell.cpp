@@ -21,6 +21,12 @@ See the Mulan PSL v2 for more details. */
 #include <cassert>
 #include <cstdlib>
 
+TupleCell::TupleCell(const Value &value):
+  attr_type_(value.type), data_((char *)value.data)
+{
+  set_length(type_length(value.type, value.data));
+}
+
 void TupleCell::to_string(std::ostream &os) const
 {
   switch (attr_type_) {
@@ -186,4 +192,11 @@ bool TupleCell::wildcard_compare(const TupleCell &other, bool is_not) const {
     return !ret;
   }
   return ret;
+}
+
+bool TupleCell::operator==(const TupleCell &other) const
+{
+  return attr_type_ == other.attr_type_
+    && length_ == other.length_
+    && memcmp(data_, other.data_, length_) == 0;
 }

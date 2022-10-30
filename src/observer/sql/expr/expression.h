@@ -140,7 +140,7 @@ private:
 class ValueExpr : public Expression {
 public:
   ValueExpr() = default;
-  ValueExpr(const Value &value) : tuple_cell_(value.type, (char *)value.data)
+  ValueExpr(const Value &value) : tuple_cell_(value)
   {
     if (value.type == CHARS) {
       tuple_cell_.set_length(strlen((const char *)value.data));

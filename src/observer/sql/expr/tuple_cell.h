@@ -14,7 +14,6 @@ See the Mulan PSL v2 for more details. */
 
 #pragma once
 
-#include <cstring>
 #include <iostream>
 #include "storage/common/table.h"
 #include "storage/common/field_meta.h"
@@ -25,11 +24,12 @@ public:
   TupleCell() = default;
   
   TupleCell(FieldMeta *meta, char *data)
-    : TupleCell(meta->type(), data)
+    : attr_type_(meta->type()), length_(meta->len()), data_(data)
   {}
-  TupleCell(AttrType attr_type, char *data)
-    : attr_type_(attr_type), data_(data)
+  TupleCell(AttrType attr_type, char *data, int length)
+    : attr_type_(attr_type), length_(length), data_(data)
   {}
+  TupleCell(const Value &value);
 
   void set_type(AttrType type) { this->attr_type_ = type; }
   void set_length(int length) { this->length_ = length; }
@@ -55,12 +55,7 @@ public:
     return attr_type_;
   }
 
-  bool operator==(const TupleCell &other) const
-  {
-    return attr_type_ == other.attr_type_
-      && length_ == other.length_
-      && strcmp(data_, other.data_) == 0;
-  }
+  bool operator==(const TupleCell &other) const;
 
 private:
   AttrType attr_type_ = UNDEFINED;
