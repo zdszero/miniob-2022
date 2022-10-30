@@ -101,7 +101,7 @@ void condition_init(Condition *condition, CompOp comp, int left_is_select, ast *
   condition->condition_type = COND_COMPARE;
   if (left_is_select) {
     assert(left_select != NULL);
-    condition->left_select = new Selects();
+    condition->left_select = (Selects *) malloc(sizeof(Selects));
     *condition->left_select = *left_select;
     condition->left_ast = NULL;
   } else {
@@ -111,7 +111,7 @@ void condition_init(Condition *condition, CompOp comp, int left_is_select, ast *
   }
   if (right_is_select) {
     assert(right_select != NULL);
-    condition->right_select = new Selects();
+    condition->right_select = (Selects *) malloc(sizeof(Selects));
     *condition->right_select = *right_select;
     condition->right_ast = NULL;
   } else {
@@ -129,7 +129,7 @@ void condition_init_exists(Condition *condition, int exists, Selects *sub_select
     condition->comp = NOT_EXISTS;
   }
   condition->condition_type = COND_EXISTS;
-  condition->left_select = new Selects();
+  condition->left_select = (Selects *) malloc(sizeof(Selects));
   *condition->left_select = *sub_select;
 }
 
@@ -141,7 +141,7 @@ void condition_init_in(Condition *condition, int in, ast *expr, Selects *sub_sel
     condition->comp = NOT_IN;
   }
   condition->condition_type = COND_IN;
-  condition->left_select = new Selects();
+  condition->left_select = (Selects *) malloc(sizeof(Selects));
   *condition->left_select = *sub_select;
   condition->left_ast = expr;
   condition->expr_num = 0;
@@ -167,16 +167,19 @@ void condition_destroy(Condition *condition)
   if (condition->condition_type == COND_COMPARE) {
     if (condition->left_is_select) {
       selects_destroy(condition->left_select);
+      free(condition->left_select);
     } else {
       node_destroy(condition->left_ast);
     }
     if (condition->right_is_select) {
       selects_destroy(condition->right_select);
+      free(condition->right_select);
     } else {
       node_destroy(condition->right_ast);
     }
   } else if (condition->condition_type == COND_EXISTS) {
     selects_destroy(condition->left_select);
+    free(condition->left_select);
   } else {
     assert(condition->condition_type == COND_IN);
     if (condition->expr_num > 0) {
@@ -185,6 +188,7 @@ void condition_destroy(Condition *condition)
       }
     } else {
       selects_destroy(condition->left_select);
+      free(condition->left_select);
     }
     node_destroy(condition->left_ast);
   }
@@ -412,7 +416,7 @@ void update_pair_init(UpdatePair *update_pair, const char *attribute_name, int i
   if (is_select) {
     assert(expr == NULL);
     update_pair->expr = NULL;
-    update_pair->select = new Selects();
+    update_pair->select = (Selects *) malloc(sizeof(Selects));
     *update_pair->select = *select;
   } else {
     assert(select == NULL);
@@ -429,6 +433,7 @@ void update_pair_destroy(UpdatePair *update_pair)
 
   if (update_pair->is_select) {
     selects_destroy(update_pair->select);
+    free(update_pair->select);
   } else {
     node_destroy(update_pair->expr);
   }
