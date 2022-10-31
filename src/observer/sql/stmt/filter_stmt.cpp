@@ -23,33 +23,47 @@ See the Mulan PSL v2 for more details. */
 
 static RC check_condition(Condition &condition, ExprContext &ctx)
 {
-  CompOp comp = condition.comp;
-  if (comp == IS || comp == IS_NOT) {
-    if (condition.right_is_select) {
+  if (condition.condition_type == COND_COMPARE) {
+    CompOp comp = condition.comp;
+    if (comp == IS || comp == IS_NOT) {
+      if (condition.right_is_select) {
+        return RC::SQL_SYNTAX;
+      }
+      if (condition.right_ast->nodetype != NodeType::VALN) {
+        return RC::SQL_SYNTAX;
+      }
+      if (condition.right_ast->val.type != AttrType::NULLS) {
+        return RC::SQL_SYNTAX;
+      }
+    }
+    size_t attr_cnt = 0;
+    size_t aggr_cnt = 0;
+    if (!condition.left_is_select) {
+      ast *lt = condition.left_ast;
+      RC rc = check_leaf_node(lt, ctx, attr_cnt, aggr_cnt);
+      if (rc != RC::SUCCESS) {
+        return rc;
+      }
+    }
+    if (!condition.right_is_select) {
+      ast *rt = condition.right_ast;
+      RC rc = check_leaf_node(rt, ctx, attr_cnt, aggr_cnt);
+      if (rc != RC::SUCCESS) {
+        return rc;
+      }
+    }
+    if (aggr_cnt > 0) {
+      LOG_WARN("cannot use aggregation in condition\n");
       return RC::SQL_SYNTAX;
     }
-    if (condition.right_ast->nodetype != NodeType::VALN) {
-      return RC::SQL_SYNTAX;
+  } else if (condition.condition_type == COND_IN) {
+    size_t attr_cnt = 0;
+    size_t aggr_cnt = 0;
+    ast *lt = condition.left_ast;
+    RC rc = check_leaf_node(lt, ctx, attr_cnt, aggr_cnt);
+    if (rc != RC::SUCCESS) {
+      return rc;
     }
-    if (condition.right_ast->val.type != AttrType::NULLS) {
-      return RC::SQL_SYNTAX;
-    }
-  }
-  size_t attr_cnt = 0;
-  size_t aggr_cnt = 0;
-  ast *lt = condition.left_ast;
-  ast *rt = condition.right_ast;
-  RC rc = check_leaf_node(lt, ctx, attr_cnt, aggr_cnt);
-  if (rc != RC::SUCCESS) {
-    return rc;
-  }
-  rc = check_leaf_node(rt, ctx, attr_cnt, aggr_cnt);
-  if (rc != RC::SUCCESS) {
-    return rc;
-  }
-  if (aggr_cnt > 0) {
-    LOG_WARN("cannot use aggregation in condition\n");
-    return RC::SQL_SYNTAX;
   }
   return RC::SUCCESS;
 }
