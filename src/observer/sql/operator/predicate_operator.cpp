@@ -142,6 +142,16 @@ bool PredicateOperator::do_in_unit(Tuple &tuple, const FilterUnit *filter_unit)
   if (cell.attr_type() == NULLS) {
     return false;
   }
+  bool has_null = false;
+  for (const TupleCell &c : filter_unit->in_cells()) {
+    if (c.attr_type() == NULLS) {
+      has_null = true;
+      break;
+    }
+  }
+  if (has_null && comp == NOT_IN) {
+    return false;
+  }
   bool ret  = false;
   for (const TupleCell &c : filter_unit->in_cells()) {
     if (c == cell) {
