@@ -66,7 +66,6 @@ RC SubSelectOperator::GetOneResult(TupleCell &cell) const
     }
     Tuple *tuple = project_oper->current_tuple();
     Expression *expr = select_stmt_->exprs()[0];
-    TupleCell cell;
     expr->get_value(*tuple, cell);
     rc = project_oper->next();
     if (rc != RC::RECORD_EOF) {
