@@ -111,3 +111,5 @@ select * from csq_1 where col1 in (select * from csq_2);
 FAILURE
 select * from csq_1 where col1 not in (select * from csq_2);
 FAILURE
+select * from csq_1 where feat1 > (select avg(csq_2.feat2) from csq_2 where csq_2.id in (select csq_3.id from csq_3 where csq_3.col3 <> (select csq_4.col4 from csq_4 where csq_4.id <> csq_1.id)));
+FAILURE

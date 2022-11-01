@@ -16,6 +16,7 @@ See the Mulan PSL v2 for more details. */
 #include "common/log/log.h"
 #include "sql/operator/aggregate_operator.h"
 #include "sql/operator/predicate_operator.h"
+#include "sql/operator/project_operator.h"
 #include "sql/operator/subselect_operator.h"
 #include "sql/operator/table_scan_operator.h"
 #include "storage/record/record.h"
@@ -67,16 +68,42 @@ static RC fetch_inner_value(SelectStmt *select_stmt, Tuple *outer_tuple, TupleCe
   Table *table = select_stmt->tables()[0];
   TableScanOperator *table_scan_oper = new TableScanOperator(table, outer_tuple);
   PredicateOperator *pred_oper = new PredicateOperator(select_stmt->filter_stmt());
-  assert(!select_stmt->select_attributes());
-  AggregateOperator *aggr_oper = new AggregateOperator(select_stmt->exprs());
-  pred_oper->add_child(table_scan_oper);
-  aggr_oper->add_child(pred_oper);
-  RC rc = aggr_oper->open();
-  if (rc != RC::SUCCESS) {
-    return rc;
+  if (select_stmt->select_attributes()) {
+    printf("use project operator\n");
+    ProjectOperator *proj_oper = new ProjectOperator();
+    Expression *expr = select_stmt->exprs()[0];
+    proj_oper->add_projection(expr, true);
+    pred_oper->add_child(table_scan_oper);
+    proj_oper->add_child(pred_oper);
+    DEFER([proj_oper](){ delete proj_oper; });
+    RC rc = pred_oper->open();
+    if (rc != RC::SUCCESS) {
+      return rc;
+    }
+    rc = pred_oper->next();
+    if (rc != RC::SUCCESS) {
+      return rc;
+    }
+    rc = expr->get_value(*pred_oper->current_tuple(), cell);
+    if (rc != RC::SUCCESS) {
+      return rc;
+    }
+    rc = pred_oper->next();
+    if (rc != RC::RECORD_EOF) {
+      LOG_WARN("fetch more than one tuple in update-select");
+      return RC::GENERIC_ERROR;
+    }
+  } else {
+    AggregateOperator *aggr_oper = new AggregateOperator(select_stmt->exprs());
+    DEFER([aggr_oper]() { delete aggr_oper; });
+    pred_oper->add_child(table_scan_oper);
+    aggr_oper->add_child(pred_oper);
+    RC rc = aggr_oper->open();
+    if (rc != RC::SUCCESS) {
+      return rc;
+    }
+    cell = TupleCell(aggr_oper->first_result().to_value()); // copy
   }
-  cell = TupleCell(aggr_oper->first_result().to_value()); // copy
-  delete aggr_oper;
   return RC::SUCCESS;
 }
 
