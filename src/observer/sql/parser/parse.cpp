@@ -251,13 +251,25 @@ void value_destroy(Value *value)
   value->data = nullptr;
 }
 
-
-void join_init(Join *join, const char *join_table, Condition conditions[], size_t condition_num) {
+void join_init(Join *join, const char *join_table, Condition conditions[], size_t condition_num)
+{
   for(size_t i = 0; i < condition_num; i++) {
     join->conditions[i] = conditions[i];
   }
   join->condition_num = condition_num;
   join->join_table_name = strdup(join_table);
+}
+
+void join_set_condition_ops(Join *join, ConditionOp condops[], size_t op_num)
+{
+  if (join->condition_num == 0) {
+    return;
+  }
+  assert(op_num == join->condition_num - 1);
+  for (size_t i = 0; i < op_num; i++) {
+    join->conditions[i].condop = condops[i];
+  }
+  join->conditions[op_num].condop = ConditionOp::COND_END;
 }
 
 void join_destroy(Join *join) {
@@ -324,6 +336,18 @@ void selects_append_conditions(Selects *selects, Condition conditions[], size_t 
     selects->conditions[i] = conditions[i];
   }
   selects->condition_num = condition_num;
+}
+
+void selects_set_condition_ops(Selects *selects, ConditionOp condops[], size_t op_num)
+{
+  if (selects->condition_num == 0) {
+    return;
+  }
+  assert(op_num == selects->condition_num - 1);
+  for (size_t i = 0; i < op_num; i++) {
+    selects->conditions[i].condop = condops[i];
+  }
+  selects->conditions[op_num].condop = ConditionOp::COND_END;
 }
 
 void select_append_joins(Selects *selects, Join joins[], size_t join_num)
@@ -400,6 +424,17 @@ void deletes_set_conditions(Deletes *deletes, Condition conditions[], size_t con
   }
   deletes->condition_num = condition_num;
 }
+void deletes_set_condition_ops(Deletes *deletes, ConditionOp condops[], size_t op_num)
+{
+  if (deletes->condition_num == 0) {
+    return;
+  }
+  assert(op_num == deletes->condition_num - 1);
+  for (size_t i = 0; i < op_num; i++) {
+    deletes->conditions[i].condop = condops[i];
+  }
+  deletes->conditions[op_num].condop = ConditionOp::COND_END;
+}
 void deletes_destroy(Deletes *deletes)
 {
   for (size_t i = 0; i < deletes->condition_num; i++) {
@@ -447,6 +482,18 @@ void updates_init(Updates *updates, const char *relation_name, Condition conditi
     updates->conditions[i] = conditions[i];
   }
   updates->condition_num = condition_num;
+}
+
+void updates_set_condition_ops(Updates *updates, ConditionOp condops[], size_t op_num)
+{
+  if (updates->condition_num == 0) {
+    return;
+  }
+  assert(op_num == updates->condition_num - 1);
+  for (size_t i = 0; i < op_num; i++) {
+    updates->conditions[i].condop = condops[i];
+  }
+  updates->conditions[op_num].condop = ConditionOp::COND_END;
 }
 
 void update_append_pair(Updates *updates, UpdatePair *update_pair)

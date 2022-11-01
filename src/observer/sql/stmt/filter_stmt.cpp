@@ -202,6 +202,7 @@ RC FilterStmt::create_filter_unit_compare(Db *db, ExprContext &ctx, Condition &c
   filter_unit->set_right(right);
   filter_unit->set_comp(condition.comp);
   filter_unit->set_condition_type(condition.condition_type);
+  filter_unit->set_condition_op(condition.condop);
   return RC::SUCCESS;
 }
 
@@ -239,6 +240,7 @@ RC FilterStmt::create_filter_unit_exists(Db *db, ExprContext &ctx, Condition &co
 
   filter_unit->set_comp(condition.comp);
   filter_unit->set_condition_type(condition.condition_type);
+  filter_unit->set_condition_op(condition.condop);
   return RC::SUCCESS;
 }
 
@@ -303,5 +305,6 @@ RC FilterStmt::create_filter_unit_in(Db *db, ExprContext &ctx, Condition &condit
   filter_unit->set_left(ExprFactory::create(condition.left_ast, ctx));
   filter_unit->set_comp(condition.comp);
   filter_unit->set_condition_type(condition.condition_type);
+  filter_unit->set_condition_op(condition.condop);
   return RC::SUCCESS;
 }

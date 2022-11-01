@@ -28,10 +28,14 @@ typedef struct ParserContext {
 	// conditions
   size_t condition_length[MAX_NUM];
   Condition conditions[MAX_NUM][MAX_NUM];
+	size_t condition_op_length[MAX_NUM];
+	ConditionOp condition_ops[MAX_NUM][MAX_NUM];
 
 	// join
 	size_t join_condition_length[MAX];
 	Condition join_conditions[MAX_NUM][MAX_NUM];
+	size_t join_condition_op_length[MAX_NUM];
+	ConditionOp join_condition_ops[MAX_NUM][MAX_NUM];
 	size_t join_length[MAX_NUM];
 	Join joins[MAX_NUM][MAX_NUM];
 
@@ -98,7 +102,7 @@ void clear_selection(ParserContext *context, size_t select_idx)
 // keywords
 %token  CREATE DROP TABLE TABLES INDEX SELECT DESC SHOW SYNC INSERT DELETE
 				UPDATE TRX_BEGIN TRX_COMMIT TRX_ROLLBACK HELP EXIT INTO VALUES FROM
-				WHERE AND SET ON LOAD DATA INFILE INNER JOIN UNIQUE
+				WHERE AND OR SET ON LOAD DATA INFILE INNER JOIN UNIQUE
 // punctuations
 %token SEMICOLON DOT COMMA LBRACE RBRACE
 // types
@@ -376,6 +380,7 @@ delete:
 			deletes_init_relation(&CONTEXT->ssql->sstr.deletion, $3);
 			deletes_set_conditions(&CONTEXT->ssql->sstr.deletion, 
 					CONTEXT->conditions[CUR_SEL], CONTEXT->condition_length[CUR_SEL]);
+			deletes_set_condition_ops(&CONTEXT->ssql->sstr.deletion, CONTEXT->condition_ops[CUR_SEL], CONTEXT->condition_op_length[CUR_SEL]);
 			CONTEXT->condition_length[CUR_SEL] = 0;	
     }
     ;
@@ -384,6 +389,7 @@ update:
     UPDATE ID SET update_pair update_pair_list where SEMICOLON {
 			CONTEXT->ssql->flag = SCF_UPDATE;//"update";
 			updates_init(&CONTEXT->ssql->sstr.update, $2, CONTEXT->conditions[CUR_SEL], CONTEXT->condition_length[CUR_SEL]);
+			updates_set_condition_ops(&CONTEXT->ssql->sstr.update, CONTEXT->condition_ops[CUR_SEL], CONTEXT->condition_op_length[CUR_SEL]);
 			CONTEXT->condition_length[CUR_SEL] = 0;
 		}
     ;
@@ -422,6 +428,7 @@ select_body:
 
 			selects_append_relation(&CONTEXT->selects[CUR_SEL], $5);
 			selects_append_conditions(&CONTEXT->selects[CUR_SEL], CONTEXT->conditions[CUR_SEL], CONTEXT->condition_length[CUR_SEL]);
+			selects_set_condition_ops(&CONTEXT->selects[CUR_SEL], CONTEXT->condition_ops[CUR_SEL], CONTEXT->condition_op_length[CUR_SEL]);
 			select_append_joins(&CONTEXT->selects[CUR_SEL], CONTEXT->joins[CUR_SEL], CONTEXT->join_length[CUR_SEL]);
 			select_append_exprs(&CONTEXT->selects[CUR_SEL], CONTEXT->exprs[CUR_SEL], CONTEXT->expr_length[CUR_SEL]);
 	}
@@ -504,7 +511,16 @@ inner_join:
 
 join_condition_list:
 		/* empty */
-		| AND join_condition join_condition_list
+		| join_condition_op join_condition join_condition_list
+		;
+
+join_condition_op:
+		AND {
+			CONTEXT->join_condition_ops[CUR_SEL][CONTEXT->join_condition_op_length[CUR_SEL]++] = COND_AND;
+		}
+		| OR {
+			CONTEXT->join_condition_ops[CUR_SEL][CONTEXT->join_condition_op_length[CUR_SEL]++] = COND_OR;
+		}
 		;
 
 join_condition:
@@ -536,8 +552,16 @@ where:
     ;
 condition_list:
     /* empty */
-    | AND condition condition_list
+    | condition_op condition condition_list
     ;
+condition_op:
+		AND {
+			CONTEXT->condition_ops[CUR_SEL][CONTEXT->condition_op_length[CUR_SEL]++] = COND_AND;
+		}
+		| OR {
+			CONTEXT->condition_ops[CUR_SEL][CONTEXT->condition_op_length[CUR_SEL]++] = COND_OR;
+		}
+		;
 condition:
 		exp comOp exp {
 			Condition condition;

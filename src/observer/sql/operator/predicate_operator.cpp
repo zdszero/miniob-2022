@@ -234,12 +234,18 @@ bool PredicateOperator::do_predicate(Tuple &tuple)
     return true;
   }
 
+  bool ret = true;
+  ConditionOp prev_op = ConditionOp::COND_AND;
   for (const FilterUnit *filter_unit : filter_stmt_->filter_units()) {
-    if (do_filter_unit(tuple, filter_unit) == false) {
-      return false;
+    if (prev_op == ConditionOp::COND_AND) {
+      ret = (ret && do_filter_unit(tuple, filter_unit));
+    } else if (prev_op == ConditionOp::COND_OR) {
+      ret = (ret || do_filter_unit(tuple, filter_unit));
     }
+    prev_op = filter_unit->condition_op();
   }
-  return true;
+  assert(prev_op == ConditionOp::COND_END);
+  return ret;
 }
 
 // int PredicateOperator::tuple_cell_num() const

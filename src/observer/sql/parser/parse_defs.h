@@ -122,8 +122,15 @@ typedef enum {
   COND_IN,
 } ConditionType;
 
+typedef enum {
+  COND_AND,
+  COND_OR,
+  COND_END,
+} ConditionOp;
+
 typedef struct _Condition {
   ConditionType condition_type;
+  ConditionOp condop;
   CompOp comp;
   ast *left_ast;
   ast *right_ast;
@@ -306,6 +313,7 @@ void value_init_null(Value *value);
 void value_destroy(Value *value);
 
 void join_init(Join *join, const char *join_table, Condition conditions[], size_t condition_num);
+void join_set_condition_ops(Join *join, ConditionOp condops[], size_t op_num);
 void join_destroy(Join *join);
 
 void aggregate_init(Aggregate *aggr, AggrType aggr_type, int is_attr, RelAttr *attr, Value *value);
@@ -318,6 +326,7 @@ void selects_init(Selects *selects, ...);
 void select_append_exprs(Selects *selects, ast *exprs[], size_t expr_num);
 void selects_append_relation(Selects *selects, const char *relation_name);
 void selects_append_conditions(Selects *selects, Condition conditions[], size_t condition_num);
+void selects_set_condition_ops(Selects *selects, ConditionOp condops[], size_t op_num);
 void select_append_joins(Selects *selects, Join joins[], size_t join_num);
 void selects_destroy(Selects *selects);
 
@@ -327,11 +336,13 @@ void inserts_destroy(Inserts *inserts);
 
 void deletes_init_relation(Deletes *deletes, const char *relation_name);
 void deletes_set_conditions(Deletes *deletes, Condition conditions[], size_t condition_num);
+void deletes_set_condition_ops(Deletes *deletes, ConditionOp condops[], size_t op_num);
 void deletes_destroy(Deletes *deletes);
 
 void update_pair_init(UpdatePair *update_pair, const char *attribute_name, int is_select, Selects *select, ast *expr);
 void update_pair_destroy(UpdatePair *update_pair);
 void updates_init(Updates *updates, const char *relation_name, Condition conditions[], size_t condition_num);
+void updates_set_condition_ops(Updates *updates, ConditionOp condops[], size_t op_num);
 void update_append_pair(Updates *updates, UpdatePair *update_pair);
 void updates_destroy(Updates *updates);
 

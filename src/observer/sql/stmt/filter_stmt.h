@@ -140,9 +140,18 @@ public:
   {
     return sub_select_;
   }
+  void set_condition_op(ConditionOp condop)
+  {
+    condop_ = condop;
+  }
+  ConditionOp condition_op() const
+  {
+    return condop_;
+  }
 
 private:
   CompOp comp_ = NO_OP;
+  ConditionOp condop_;
   ConditionType condition_type_;
   Expression *left_ = nullptr;
   Expression *right_ = nullptr;
