@@ -38,9 +38,16 @@ void SelectStmt::Print() const
   printf("------------------\n");
   auto print_units = [](const std::vector<FilterUnit *> &units) {
     for (FilterUnit *unit : units) {
-      printf("comp: %s\n", comp_to_string(unit->comp()).c_str());
-      print_expr(unit->left());
-      print_expr(unit->right());
+      if (unit->condition_type() == ConditionType::COND_COMPARE) {
+        printf("comp: %s\n", comp_to_string(unit->comp()).c_str());
+        print_expr(unit->left());
+        print_expr(unit->right());
+      } else if (unit->condition_type() == ConditionType::COND_EXISTS) {
+        printf("exists\n");
+      } else {
+        print_expr(unit->left());
+        printf("in subquery\n");
+      }
     }
   };
   printf("--- table info ---\n");
@@ -121,7 +128,7 @@ static void collect_exprs(Selects &select_sql, const ExprContext &ctx, std::vect
   }
 }
 
-static RC collect_tables(Db *db, Selects &select_sql, ExprContext &ctx)
+static RC collect_tables(Db *db, std::vector<Table *> &tables, Selects &select_sql, ExprContext &ctx)
 {
   for (int i = select_sql.relation_num - 1; i >= 0; i--) {
     const char *table_name = select_sql.relations[i];
@@ -137,6 +144,7 @@ static RC collect_tables(Db *db, Selects &select_sql, ExprContext &ctx)
     }
 
     ctx.AddTable(table);
+    tables.push_back(table);
   }
   return RC::SUCCESS;
 }
@@ -170,7 +178,7 @@ static RC collect_join_stmts(Db *db, Selects &select_sql, Table *default_table, 
   return RC::SUCCESS;
 }
 
-RC SelectStmt::create(Db *db, Selects &select_sql, Stmt *&stmt)
+RC SelectStmt::create_with_context(Db *db, Selects &select_sql, Stmt *&stmt, ExprContext &select_ctx)
 {
   if (nullptr == db) {
     LOG_WARN("invalid argument. db is null");
@@ -178,8 +186,8 @@ RC SelectStmt::create(Db *db, Selects &select_sql, Stmt *&stmt)
   }
 
   // collect tables in `from` statement and set default table
-  ExprContext select_ctx;
-  RC rc = collect_tables(db, select_sql, select_ctx);
+  std::vector<Table *> tables;
+  RC rc = collect_tables(db, tables, select_sql, select_ctx);
   if (rc != RC::SUCCESS) {
     return rc;
   }
@@ -227,11 +235,9 @@ RC SelectStmt::create(Db *db, Selects &select_sql, Stmt *&stmt)
     LOG_WARN("cannot construct filter stmt");
     return rc;
   }
-  printf("filter created\n");
 
   // everything alright
   SelectStmt *select_stmt = new SelectStmt();
-  auto tables = select_ctx.GetTables();
   select_stmt->tables_.swap(tables);
   select_stmt->join_stmts_.swap(join_stmts);
   select_stmt->exprs_.swap(exprs);
@@ -241,4 +247,10 @@ RC SelectStmt::create(Db *db, Selects &select_sql, Stmt *&stmt)
 
   select_stmt->Print();
   return RC::SUCCESS;
+}
+
+RC SelectStmt::create(Db *db, Selects &select_sql, Stmt *&stmt)
+{
+  ExprContext select_ctx;
+  return create_with_context(db, select_sql, stmt, select_ctx);
 }

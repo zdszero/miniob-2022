@@ -46,6 +46,7 @@ public:
 
 public:
   static RC create(Db *db, Selects &select_sql, Stmt *&stmt);
+  static RC create_with_context(Db *db, Selects &select_sql, Stmt *&stmt, ExprContext &select_ctx);
 
 public:
   const std::vector<Table *> &tables() const

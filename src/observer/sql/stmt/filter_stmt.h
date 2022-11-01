@@ -43,6 +43,9 @@ public:
     for (Value &v : cell_values_) {
       value_destroy(&v);
     }
+    if (correlated_) {
+      delete sub_select_;
+    }
   }
 
   void set_comp(CompOp comp)
@@ -117,12 +120,25 @@ public:
   {
     return in_cells_;
   }
+  bool is_correlated() const
+  {
+    return correlated_;
+  }
   void set_cells(const std::vector<Value> &values)
   {
     cell_values_ = values;
     for (const Value &v : values) {
       in_cells_.push_back(TupleCell(v));
     }
+  }
+  void set_sub_select(SelectStmt *select_stmt)
+  {
+    correlated_ = true;
+    sub_select_ = select_stmt;
+  }
+  SelectStmt *sub_select() const
+  {
+    return sub_select_;
   }
 
 private:
@@ -131,6 +147,8 @@ private:
   Expression *left_ = nullptr;
   Expression *right_ = nullptr;
   bool exists_{false};
+  bool correlated_{false};
+  SelectStmt *sub_select_{nullptr};
   std::vector<TupleCell> in_cells_;
   std::vector<Value> cell_values_;
 };
@@ -153,4 +171,8 @@ public:
 
 private:
   std::vector<FilterUnit *> filter_units_;  // 默认当前都是AND关系
+                                            //
+  static RC create_filter_unit_compare(Db *db, ExprContext &ctx, Condition &condition, FilterUnit *&filter_unit);
+  static RC create_filter_unit_exists(Db *db, ExprContext &ctx, Condition &condition, FilterUnit *&filter_unit);
+  static RC create_filter_unit_in(Db *db, ExprContext &ctx, Condition &condition, FilterUnit *&filter_unit);
 };

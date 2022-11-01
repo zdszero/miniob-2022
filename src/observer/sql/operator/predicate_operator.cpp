@@ -16,6 +16,7 @@ See the Mulan PSL v2 for more details. */
 #include "common/log/log.h"
 #include "sql/operator/predicate_operator.h"
 #include "sql/operator/subselect_operator.h"
+#include "sql/operator/table_scan_operator.h"
 #include "storage/record/record.h"
 #include "storage/common/field.h"
 
@@ -67,6 +68,7 @@ bool PredicateOperator::do_compare_unit(Tuple &tuple, const FilterUnit *filter_u
   TupleCell right_cell;
   RC rc;
 
+  assert(filter_unit->left() && filter_unit->right());
   rc = filter_unit->left()->get_value(tuple, left_cell);
   assert(rc == RC::SUCCESS);
   rc = filter_unit->right()->get_value(tuple, right_cell);
@@ -121,7 +123,29 @@ bool PredicateOperator::do_exists_unit(Tuple &tuple, const FilterUnit *filter_un
 {
   CompOp comp = filter_unit->comp();
   assert(comp == EXISTS || comp == NOT_EXISTS);
-  bool ret = filter_unit->exists();
+  bool ret = false;
+  if (filter_unit->is_correlated()) {
+    // which table is inner table ?
+    assert(filter_unit->sub_select()->tables().size() == 1);
+    Table *table = filter_unit->sub_select()->tables()[0];
+    TableScanOperator scan_oper(table);
+    PredicateOperator pred_oper(filter_unit->sub_select()->filter_stmt());
+    RC rc;
+    rc = scan_oper.open();
+    assert(rc == RC::SUCCESS);
+    while ((rc = scan_oper.next()) == RC::SUCCESS) {
+      CartesianTuple cartesian_t;
+      Tuple *t = scan_oper.current_tuple();
+      cartesian_t.add_tuple(&tuple);
+      cartesian_t.add_tuple(t);
+      if (pred_oper.do_predicate(cartesian_t)) {
+        ret = true;
+        break;
+      }
+    }
+  } else {
+    ret = filter_unit->exists();
+  }
   if (comp == EXISTS) {
     return ret;
   } else {
@@ -142,8 +166,34 @@ bool PredicateOperator::do_in_unit(Tuple &tuple, const FilterUnit *filter_unit)
   if (cell.attr_type() == NULLS) {
     return false;
   }
+  std::vector<TupleCell> target_cells;
+  if (filter_unit->is_correlated()) {
+    SelectStmt *sub_select = filter_unit->sub_select();
+    assert(sub_select->tables().size() == 1);
+    assert(sub_select->exprs().size() == 1);
+    Table *table = sub_select->tables()[0];
+    Expression *expr = sub_select->exprs()[0];
+    TableScanOperator scan_oper(table);
+    PredicateOperator pred_oper(filter_unit->sub_select()->filter_stmt());
+    RC rc;
+    rc = scan_oper.open();
+    assert(rc == RC::SUCCESS);
+    while ((rc = scan_oper.next()) == RC::SUCCESS) {
+      CartesianTuple cartesian_t;
+      Tuple *t = scan_oper.current_tuple();
+      cartesian_t.add_tuple(&tuple);
+      cartesian_t.add_tuple(t);
+      if (pred_oper.do_predicate(cartesian_t)) {
+        TupleCell cell;
+        expr->get_value(*t, cell);
+        target_cells.push_back(cell);
+      }
+    }
+  } else {
+    target_cells = filter_unit->in_cells();
+  }
   bool has_null = false;
-  for (const TupleCell &c : filter_unit->in_cells()) {
+  for (const TupleCell &c : target_cells) {
     if (c.attr_type() == NULLS) {
       has_null = true;
       break;
@@ -153,7 +203,7 @@ bool PredicateOperator::do_in_unit(Tuple &tuple, const FilterUnit *filter_unit)
     return false;
   }
   bool ret  = false;
-  for (const TupleCell &c : filter_unit->in_cells()) {
+  for (const TupleCell &c : target_cells) {
     if (c == cell) {
       ret = true;
       break;

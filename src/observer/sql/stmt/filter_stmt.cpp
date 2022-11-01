@@ -139,82 +139,135 @@ RC FilterStmt::create_filter_unit(Db *db, ExprContext &ctx, Condition &condition
   }
 
   if (condition.condition_type == COND_COMPARE) {
-
-    Expression *left = nullptr;
-    Expression *right = nullptr;
-
-    if (condition.left_is_select) {
-      Stmt *left_select = nullptr;
-      DEFER([left_select]() { delete left_select; });
-      rc = SelectStmt::create(db, *condition.left_select, left_select);
-      if (rc != RC::SUCCESS) {
-        return rc;
-      }
-      SubSelectOperator oper(static_cast<SelectStmt *>(left_select), nullptr);
-      TupleCell left_cell;
-      rc = oper.GetOneResult(left_cell);
-      if (rc != RC::SUCCESS) {
-        return rc;
-      }
-      left = new ValueExpr(left_cell.to_value()); // free?
-    } else {
-      left = ExprFactory::create(condition.left_ast, ctx);
-    }
-    if (condition.right_is_select) {
-      Stmt *right_select = nullptr;
-      DEFER([right_select]() { delete right_select; });
-      rc = SelectStmt::create(db, *condition.right_select, right_select);
-      if (rc != RC::SUCCESS) {
-        return rc;
-      }
-      SubSelectOperator oper(static_cast<SelectStmt *>(right_select), nullptr);
-      TupleCell right_cell;
-      rc = oper.GetOneResult(right_cell);
-      if (rc != RC::SUCCESS) {
-        return rc;
-      }
-      right = new ValueExpr(right_cell.to_value());
-    } else {
-      right = ExprFactory::create(condition.right_ast, ctx);
-    }
-
-    if (left && right) {
-      rc = check_date_valid(left, right);
-      if (rc != RC::SUCCESS) {
-        delete left;
-        delete right;
-        return rc;
-      }
-    }
-
-    filter_unit = new FilterUnit();
-    filter_unit->set_left(left);
-    filter_unit->set_right(right);
+    return create_filter_unit_compare(db, ctx, condition, filter_unit);
   } else if (condition.condition_type == ConditionType::COND_IN) {
-    std::vector<Value> new_vals;
-    assert(condition.left_ast != nullptr);
-    if (condition.expr_num > 0) {
-      assert(condition.left_select == nullptr);
+    return create_filter_unit_in(db, ctx, condition, filter_unit);
+  } else {
+    return create_filter_unit_exists(db, ctx, condition, filter_unit);
+  }
+}
+
+RC FilterStmt::create_filter_unit_compare(Db *db, ExprContext &ctx, Condition &condition, FilterUnit *&filter_unit)
+{
+  RC rc = RC::SUCCESS;
+  Expression *left = nullptr;
+  Expression *right = nullptr;
+
+  if (condition.left_is_select) {
+    Stmt *left_select = nullptr;
+    DEFER([left_select]() { delete left_select; });
+    rc = SelectStmt::create(db, *condition.left_select, left_select);
+    if (rc != RC::SUCCESS) {
+      return rc;
+    }
+    SubSelectOperator oper(static_cast<SelectStmt *>(left_select), nullptr);
+    TupleCell left_cell;
+    rc = oper.GetOneResult(left_cell);
+    if (rc != RC::SUCCESS) {
+      return rc;
+    }
+    left = new ValueExpr(left_cell.to_value());  // free?
+  } else {
+    left = ExprFactory::create(condition.left_ast, ctx);
+  }
+  if (condition.right_is_select) {
+    Stmt *right_select = nullptr;
+    DEFER([right_select]() { delete right_select; });
+    rc = SelectStmt::create(db, *condition.right_select, right_select);
+    if (rc != RC::SUCCESS) {
+      return rc;
+    }
+    SubSelectOperator oper(static_cast<SelectStmt *>(right_select), nullptr);
+    TupleCell right_cell;
+    rc = oper.GetOneResult(right_cell);
+    if (rc != RC::SUCCESS) {
+      return rc;
+    }
+    right = new ValueExpr(right_cell.to_value());
+  } else {
+    right = ExprFactory::create(condition.right_ast, ctx);
+  }
+
+  if (left && right) {
+    rc = check_date_valid(left, right);
+    if (rc != RC::SUCCESS) {
+      delete left;
+      delete right;
+      return rc;
+    }
+  }
+
+  filter_unit = new FilterUnit();
+  filter_unit->set_left(left);
+  filter_unit->set_right(right);
+  filter_unit->set_comp(condition.comp);
+  filter_unit->set_condition_type(condition.condition_type);
+  return RC::SUCCESS;
+}
+
+RC FilterStmt::create_filter_unit_exists(Db *db, ExprContext &ctx, Condition &condition, FilterUnit *&filter_unit)
+{
+  RC rc = RC::SUCCESS;
+  assert(condition.condition_type == ConditionType::COND_EXISTS);
+  assert(condition.left_select != nullptr);
+  Stmt *sub_select_stmt = nullptr;
+  DEFER([sub_select_stmt]() { delete sub_select_stmt; });
+  rc = SelectStmt::create(db, *condition.left_select, sub_select_stmt);
+  if (rc == RC::SUCCESS) {
+    SubSelectOperator oper(static_cast<SelectStmt *>(sub_select_stmt), nullptr);
+    std::vector<TupleCell> cells;
+    bool exists;
+    rc = oper.HasResult(exists);
+    if (rc != RC::SUCCESS) {
+      return rc;
+    }
+    filter_unit = new FilterUnit();
+    filter_unit->set_exists(exists);
+  } else {
+    ExprContext correlated_ctx;
+    for (Table *tbl : ctx.GetTables()) {
+      correlated_ctx.AddTable(tbl);
+    }
+    rc = SelectStmt::create_with_context(db, *condition.left_select, sub_select_stmt, correlated_ctx);
+    if (rc != RC::SUCCESS) {
+      LOG_WARN("not correlated sub query, syntax error");
+      return rc;
+    }
+    filter_unit = new FilterUnit();
+    filter_unit->set_sub_select(static_cast<SelectStmt *>(sub_select_stmt));
+  }
+
+  filter_unit->set_comp(condition.comp);
+  filter_unit->set_condition_type(condition.condition_type);
+  return RC::SUCCESS;
+}
+
+RC FilterStmt::create_filter_unit_in(Db *db, ExprContext &ctx, Condition &condition, FilterUnit *&filter_unit)
+{
+  RC rc = RC::SUCCESS;
+  std::vector<Value> new_vals;
+  bool use_sub_select = false;
+  Stmt *sub_select_stmt = nullptr;
+  assert(condition.left_ast != nullptr);
+  if (condition.expr_num > 0) {
+    assert(condition.left_select == nullptr);
+    for (size_t i = 0; i < condition.expr_num; i++) {
+      assert(condition.exprs[i] != nullptr);
+      if (!evaluate(condition.exprs[i])) {
+        LOG_WARN("cannot evaluate %dth expression in in value list", i);
+        return SQL_SYNTAX;
+      }
+      new_vals.reserve(condition.expr_num);
       for (size_t i = 0; i < condition.expr_num; i++) {
-        assert(condition.exprs[i] != nullptr);
-        if (!evaluate(condition.exprs[i])) {
-          LOG_WARN("cannot evaluate %dth expression in in value list", i);
-          return SQL_SYNTAX;
-        }
-        new_vals.reserve(condition.expr_num);
-        for (size_t i = 0; i < condition.expr_num; i++) {
-          new_vals.push_back(value_copy(condition.exprs[i]->val));
-        }
+        new_vals.push_back(value_copy(condition.exprs[i]->val));
       }
-    } else {
-      assert(condition.expr_num == 0);
-      assert(condition.left_select != nullptr);
-      Stmt *sub_select_stmt = nullptr;
-      DEFER([sub_select_stmt]() { delete sub_select_stmt; });
-      rc = SelectStmt::create(db, *condition.left_select, sub_select_stmt);
-      if (rc != RC::SUCCESS) {
-        return rc;
-      }
+    }
+  } else {
+    // use sub query
+    assert(condition.expr_num == 0);
+    assert(condition.left_select != nullptr);
+    rc = SelectStmt::create(db, *condition.left_select, sub_select_stmt);
+    if (rc == RC::SUCCESS) {
       SubSelectOperator oper(static_cast<SelectStmt *>(sub_select_stmt), nullptr);
       std::vector<TupleCell> cells;
       rc = oper.GetResultList(cells);
@@ -226,30 +279,29 @@ RC FilterStmt::create_filter_unit(Db *db, ExprContext &ctx, Condition &condition
         Value value = cell.to_value();
         new_vals.push_back(value);
       }
+    } else {
+      // correlated subquery
+      ExprContext correlated_ctx;
+      for (Table *tbl : ctx.GetTables()) {
+        correlated_ctx.AddTable(tbl);
+      }
+      rc = SelectStmt::create_with_context(db, *condition.left_select, sub_select_stmt, correlated_ctx);
+      if (rc != RC::SUCCESS) {
+        LOG_WARN("not correlated sub query, syntax error");
+        return rc;
+      }
+      use_sub_select = true;
     }
-    filter_unit = new FilterUnit();
-    filter_unit->set_cells(new_vals);
-    filter_unit->set_left(ExprFactory::create(condition.left_ast, ctx));
-  } else {
-    assert(condition.left_select != nullptr);
-    Stmt *sub_select_stmt = nullptr;
-    DEFER([sub_select_stmt]() { delete sub_select_stmt; });
-    rc = SelectStmt::create(db, *condition.left_select, sub_select_stmt);
-    if (rc != RC::SUCCESS) {
-      return rc;
-    }
-    SubSelectOperator oper(static_cast<SelectStmt *>(sub_select_stmt), nullptr);
-    std::vector<TupleCell> cells;
-    bool exists;
-    rc = oper.HasResult(exists);
-    if (rc != RC::SUCCESS) {
-      return rc;
-    }
-    filter_unit = new FilterUnit();
-    filter_unit->set_exists(exists);
   }
+  filter_unit = new FilterUnit();
+  if (use_sub_select) {
+    filter_unit->set_sub_select(static_cast<SelectStmt *>(sub_select_stmt));
+  } else {
+    filter_unit->set_cells(new_vals);
+    delete sub_select_stmt;
+  }
+  filter_unit->set_left(ExprFactory::create(condition.left_ast, ctx));
   filter_unit->set_comp(condition.comp);
   filter_unit->set_condition_type(condition.condition_type);
-
-  return rc;
+  return RC::SUCCESS;
 }
