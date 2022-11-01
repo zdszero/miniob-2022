@@ -454,7 +454,11 @@ RC ExecuteStage::do_select(SQLStageEvent *sql_event)
       rc = project_oper->close();
     }
 
-    session_event->set_response(ss.str());
+    if (subquery_rc != RC::SUCCESS) {
+      session_event->set_response("FAILURE\n");
+    } else {
+      session_event->set_response(ss.str());
+    }
   } else {
     AggregateOperator *aggregate_oper = static_cast<AggregateOperator *>(oper);
     RC rc = aggregate_oper->open();

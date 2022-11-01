@@ -17,6 +17,8 @@ See the Mulan PSL v2 for more details. */
 #include "sql/operator/operator.h"
 #include "sql/stmt/filter_stmt.h"
 
+extern RC subquery_rc;
+
 /**
  * PredicateOperator 用于单个表中的记录过滤
  * 如果是多个表数据过滤，比如join条件的过滤，需要设计新的predicate或者扩展:w

@@ -22,6 +22,8 @@ See the Mulan PSL v2 for more details. */
 #include "storage/record/record.h"
 #include "storage/common/field.h"
 
+RC subquery_rc = RC::SUCCESS;
+
 RC PredicateOperator::open()
 {
   if (children_.size() != 1) {
@@ -69,7 +71,6 @@ static RC fetch_inner_value(SelectStmt *select_stmt, Tuple *outer_tuple, TupleCe
   TableScanOperator *table_scan_oper = new TableScanOperator(table, outer_tuple);
   PredicateOperator *pred_oper = new PredicateOperator(select_stmt->filter_stmt());
   if (select_stmt->select_attributes()) {
-    printf("use project operator\n");
     ProjectOperator *proj_oper = new ProjectOperator();
     Expression *expr = select_stmt->exprs()[0];
     proj_oper->add_projection(expr, true);
@@ -120,14 +121,20 @@ bool PredicateOperator::do_compare_unit(Tuple &tuple, const FilterUnit *filter_u
   } else {
     rc = filter_unit->left()->get_value(tuple, left_cell);
   }
-  assert(rc == RC::SUCCESS);
+  if (rc != RC::SUCCESS) {
+    subquery_rc = rc;
+    return false;
+  }
   if (filter_unit->right_is_select()) {
     SelectStmt *right_select = filter_unit->right_select();
     rc = fetch_inner_value(right_select, &tuple, right_cell);
   } else {
     rc = filter_unit->right()->get_value(tuple, right_cell);
   }
-  assert(rc == RC::SUCCESS);
+  if (rc != RC::SUCCESS) {
+    subquery_rc = rc;
+    return false;
+  }
 
   if (comp == IS) {
     return left_cell.attr_type() == NULLS;
