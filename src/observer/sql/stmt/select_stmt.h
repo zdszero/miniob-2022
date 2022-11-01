@@ -19,6 +19,7 @@ See the Mulan PSL v2 for more details. */
 
 #include "rc.h"
 #include "sql/expr/expression.h"
+#include "sql/parser/parse_defs.h"
 #include "sql/stmt/stmt.h"
 
 class FieldMeta;
@@ -69,11 +70,21 @@ public:
   {
     return select_attributes_;
   }
+  const std::vector<Expression *> order_exprs() const
+  {
+    return order_exprs_;
+  }
+  std::vector<OrderPolicy> order_policies() const
+  {
+    return order_policies_;
+  }
   void Print() const;
 
 private:
   bool select_attributes_{true};
   std::vector<Expression *> exprs_;
+  std::vector<Expression *> order_exprs_;
+  std::vector<OrderPolicy> order_policies_;
   std::vector<JoinStmt> join_stmts_;
   Tables tables_;
   FilterStmt *filter_stmt_ = nullptr;

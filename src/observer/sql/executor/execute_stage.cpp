@@ -430,6 +430,7 @@ RC ExecuteStage::do_select(SQLStageEvent *sql_event)
   RC rc;
   if (oper->type() == OperatorType::PROJECT) {
     ProjectOperator *project_oper = static_cast<ProjectOperator *>(oper);
+    project_oper->set_order(select_stmt->order_policies(), select_stmt->order_exprs());
     rc = project_oper->open();
     if (rc != RC::SUCCESS) {
       LOG_WARN("failed to open operator");

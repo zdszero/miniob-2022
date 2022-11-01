@@ -23,9 +23,19 @@ public:
   ProjectOperator()
   {}
 
-  virtual ~ProjectOperator() = default;
+  virtual ~ProjectOperator()
+  {
+    for (ProjectTuple *t : sorted_tuples_) {
+      delete t->tuple();
+      delete t;
+    }
+  }
 
   void add_projection(Expression *expr, bool is_multi_table);
+  void set_order(const std::vector<OrderPolicy> &policies, const std::vector<Expression *> &order_exprs) {
+    order_policies_ = policies;
+    order_exprs_ = order_exprs;
+  }
 
   RC open() override;
   RC next() override;
@@ -45,4 +55,8 @@ public:
 
 private:
   ProjectTuple tuple_;
+  std::vector<OrderPolicy> order_policies_;
+  std::vector<Expression *> order_exprs_;
+  std::vector<ProjectTuple *> sorted_tuples_;
+  size_t next_idx_{0};
 };

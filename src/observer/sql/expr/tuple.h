@@ -64,6 +64,7 @@ public:
   virtual RC find_cell(const Field &field, TupleCell &cell) const = 0;
 
   virtual RC cell_spec_at(int index, const TupleCellSpec *&spec) const = 0;
+  virtual Tuple *copy() const = 0;
 };
 
 class RowTuple : public Tuple {
@@ -71,11 +72,13 @@ public:
   RowTuple() = default;
   virtual ~RowTuple()
   {
-    for (TupleCellSpec *spec : speces_) {
-      delete spec->expression();
-      delete spec;
+    if (!is_copy_) {
+      for (TupleCellSpec *spec : speces_) {
+        delete spec->expression();
+        delete spec;
+      }
+      speces_.clear();
     }
-    speces_.clear();
   }
 
   void set_record(Record *record)
@@ -157,11 +160,21 @@ public:
   {
     return *record_;
   }
+  Tuple *copy() const override
+  {
+    RowTuple *new_tuple = new RowTuple();
+    new_tuple->record_ = record_;
+    new_tuple->table_ = table_;
+    new_tuple->speces_ = speces_;
+    new_tuple->is_copy_ = true;
+    return new_tuple;
+  }
 
 private:
   Record *record_ = nullptr;
   const Table *table_ = nullptr;
   std::vector<TupleCellSpec *> speces_;
+  bool is_copy_{false};
 };
 
 /*
@@ -181,12 +194,18 @@ public:
   ProjectTuple() = default;
   virtual ~ProjectTuple()
   {
-    for (TupleCellSpec *spec : speces_) {
-      delete spec;
+    if (!is_copy_) {
+      for (TupleCellSpec *spec : speces_) {
+        delete spec;
+      }
+      speces_.clear();
     }
-    speces_.clear();
   }
 
+  Tuple *tuple() const
+  {
+    return tuple_;
+  }
   void set_tuple(Tuple *tuple)
   {
     this->tuple_ = tuple;
@@ -226,10 +245,19 @@ public:
     spec = speces_[index];
     return RC::SUCCESS;
   }
+  Tuple *copy() const override
+  {
+    ProjectTuple *new_tuple = new ProjectTuple();
+    new_tuple->speces_ = speces_;
+    new_tuple->tuple_ = tuple_;
+    new_tuple->is_copy_ = true;
+    return new_tuple;
+  }
 
 private:
   std::vector<TupleCellSpec *> speces_;
   Tuple *tuple_ = nullptr;
+  bool is_copy_{false};
 };
 
 class CartesianTuple : public Tuple {
@@ -306,6 +334,12 @@ public:
     }
     LOG_ERROR("CartesianTuple::cell_at() logic error");
     return RC::INTERNAL;
+  }
+  Tuple *copy() const override
+  {
+    CartesianTuple *new_tuple = new CartesianTuple();
+    new_tuple->tuples_ = tuples_;
+    return new_tuple;
   }
 
 private:

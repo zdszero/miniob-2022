@@ -14,8 +14,59 @@ See the Mulan PSL v2 for more details. */
 
 #include "common/log/log.h"
 #include "sql/operator/project_operator.h"
+#include "sql/parser/parse_defs.h"
 #include "storage/record/record.h"
 #include "storage/common/table.h"
+#include <algorithm>
+
+class TupleComparator {
+public:
+  TupleComparator(const std::vector<Expression *> &order_exprs, const std::vector<OrderPolicy> &policies):
+    order_exprs_(order_exprs), order_policies_(policies)
+  {}
+  int compare_one(Expression *order_expr, const Tuple* lhs, const Tuple* rhs) const
+  {
+    TupleCell left_cell, right_cell;
+    order_expr->get_value(*lhs, left_cell);
+    order_expr->get_value(*rhs, right_cell);
+    if (left_cell.attr_type() == NULLS && right_cell.attr_type() != NULLS) {
+      return -1;
+    } else if (left_cell.attr_type() == NULLS && right_cell.attr_type() == NULLS) {
+      return 0;
+    } else if (left_cell.attr_type() != NULLS && right_cell.attr_type() == NULLS) {
+      return 1;
+    }
+    int compare = left_cell.compare(right_cell);
+    return compare;
+  }
+
+  bool operator()(const Tuple *lhs, const Tuple *rhs) const
+  {
+    for (size_t i = 0; i < order_exprs_.size(); i++) {
+      Expression *expr = order_exprs_[i];
+      OrderPolicy policy = order_policies_[i];
+      int compare = compare_one(expr, lhs, rhs);
+      if (policy == OrderPolicy::ORDER_ASC) {
+        if (compare < 0) {
+          return true;
+        } else if (compare > 0) {
+          return false;
+        }
+      } else {
+        if (compare > 0) {
+          return true;
+        } else if (compare < 0) {
+          return false;
+        }
+      }
+    }
+    return true;
+  }
+
+private:
+  std::vector<Expression *> order_exprs_;
+  std::vector<OrderPolicy> order_policies_;
+};
 
 RC ProjectOperator::open()
 {
@@ -31,12 +82,29 @@ RC ProjectOperator::open()
     return rc;
   }
 
+  if (order_exprs_.size() > 0) {
+    RC rc;
+    while ((rc = children_[0]->next()) == RC::SUCCESS) {
+      tuple_.set_tuple(children_[0]->current_tuple()->copy());
+      sorted_tuples_.push_back(static_cast<ProjectTuple *>(tuple_.copy()));
+    }
+    std::sort(sorted_tuples_.begin(), sorted_tuples_.end(), TupleComparator(order_exprs_, order_policies_));
+  }
+
   return RC::SUCCESS;
 }
 
 RC ProjectOperator::next()
 {
-  return children_[0]->next();
+  if (order_exprs_.size() == 0) {
+    return children_[0]->next();
+  } else {
+    if (next_idx_ >= sorted_tuples_.size()) {
+      return RC::RECORD_EOF;
+    }
+    tuple_.set_tuple(sorted_tuples_[next_idx_++]);
+    return RC::SUCCESS;
+  }
 }
 
 RC ProjectOperator::close()
@@ -46,7 +114,10 @@ RC ProjectOperator::close()
 }
 Tuple *ProjectOperator::current_tuple()
 {
-  tuple_.set_tuple(children_[0]->current_tuple());
+  if (order_exprs_.size() == 0) {
+    tuple_.set_tuple(children_[0]->current_tuple());
+  } else {
+  }
   return &tuple_;
 }
 

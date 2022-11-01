@@ -71,6 +71,12 @@ typedef enum {
 } AggrType;
 
 typedef enum {
+  NO_ORDER,
+  ORDER_ASC,
+  ORDER_DESC,
+} OrderPolicy;
+
+typedef enum {
   UNDEFINEDN,
   OPN,
   VALN,
@@ -158,6 +164,9 @@ typedef struct _Selects {
   Join joins[MAX_NUM];
   size_t expr_num;
   ast *exprs[MAX_NUM];
+  size_t order_attr_length;
+  ast *order_attr[MAX_NUM];
+  OrderPolicy order_policy[MAX_NUM];
 } Selects;
 
 typedef struct {
@@ -329,6 +338,7 @@ void selects_append_conditions(Selects *selects, Condition conditions[], size_t 
 void selects_set_condition_ops(Selects *selects, ConditionOp condops[], size_t op_num);
 void select_append_joins(Selects *selects, Join joins[], size_t join_num);
 void selects_destroy(Selects *selects);
+void selects_set_order_info(Selects *selects, OrderPolicy policies[], ast *order_attr[], size_t order_attr_num);
 
 void insert_append_exprs(Inserts *inserts, ast *exprs[], size_t expr_num);
 void inserts_init(Inserts *inserts, const char *relation_name);

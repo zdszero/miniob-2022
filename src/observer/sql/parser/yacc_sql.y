@@ -24,6 +24,9 @@ typedef struct ParserContext {
 	Selects right_sub_select;
 	Selects update_select;
 	Selects sub_select;
+	size_t order_attr_length[MAX_NUM];
+	ast *order_attrs[MAX_NUM][MAX_NUM];
+	OrderPolicy orders[MAX_NUM][MAX_NUM];
 
 	// conditions
   size_t condition_length[MAX_NUM];
@@ -102,7 +105,7 @@ void clear_selection(ParserContext *context, size_t select_idx)
 // keywords
 %token  CREATE DROP TABLE TABLES INDEX SELECT DESC SHOW SYNC INSERT DELETE
 				UPDATE TRX_BEGIN TRX_COMMIT TRX_ROLLBACK HELP EXIT INTO VALUES FROM
-				WHERE AND OR SET ON LOAD DATA INFILE INNER JOIN UNIQUE
+				WHERE AND OR SET ON LOAD DATA INFILE INNER JOIN UNIQUE ORDER BY ASC
 // punctuations
 %token SEMICOLON DOT COMMA LBRACE RBRACE
 // types
@@ -124,6 +127,7 @@ void clear_selection(ParserContext *context, size_t select_idx)
   int number;
   float floats;
 	char *position;
+	int order_policy1;
 }
 
 %token <number> NUMBER
@@ -144,6 +148,7 @@ void clear_selection(ParserContext *context, size_t select_idx)
 %type <number> nullable;
 %type <number> is_exist;
 %type <number> is_in;
+%type <order_policy1> order_policy;
 
 // operator precedence
 %left PLUS MINUS
@@ -422,7 +427,7 @@ select:
 		;
 
 select_body:
-    begin_select select_expr select_exprs FROM ID rel_list inner_join_list where
+    begin_select select_expr select_exprs FROM ID rel_list inner_join_list where order_by
 		{
 			CONTEXT->ssql->flag=SCF_SELECT;//"select";
 
@@ -431,8 +436,39 @@ select_body:
 			selects_set_condition_ops(&CONTEXT->selects[CUR_SEL], CONTEXT->condition_ops[CUR_SEL], CONTEXT->condition_op_length[CUR_SEL]);
 			select_append_joins(&CONTEXT->selects[CUR_SEL], CONTEXT->joins[CUR_SEL], CONTEXT->join_length[CUR_SEL]);
 			select_append_exprs(&CONTEXT->selects[CUR_SEL], CONTEXT->exprs[CUR_SEL], CONTEXT->expr_length[CUR_SEL]);
+			selects_set_order_info(&CONTEXT->selects[CUR_SEL], CONTEXT->orders[CUR_SEL], CONTEXT->order_attrs[CUR_SEL], CONTEXT->order_attr_length[CUR_SEL]);
 	}
 	;
+
+order_by:
+		/* empty */
+		| ORDER BY order_attr order_attr_list
+		;
+
+order_attr:
+		exp order_policy {
+			CONTEXT->order_attrs[CUR_SEL][CONTEXT->order_attr_length[CUR_SEL]] = $1;
+			CONTEXT->orders[CUR_SEL][CONTEXT->order_attr_length[CUR_SEL]] = $2;
+			CONTEXT->order_attr_length[CUR_SEL]++;
+		}
+		;
+
+order_attr_list:
+		/* empty */
+		| COMMA order_attr order_attr_list
+		;
+
+order_policy:
+		/* empty */ {
+			$$ = ORDER_ASC;
+		}
+		| ASC {
+			$$ = ORDER_ASC;
+		}
+		| DESC {
+			$$ = ORDER_DESC;
+		}
+		;
 
 begin_select:
 		SELECT {

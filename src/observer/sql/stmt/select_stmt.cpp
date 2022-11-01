@@ -13,6 +13,8 @@ See the Mulan PSL v2 for more details. */
 //
 
 #include "sql/stmt/select_stmt.h"
+#include "sql/expr/expression.h"
+#include "sql/parser/parse_defs.h"
 #include "sql/stmt/filter_stmt.h"
 #include "common/log/log.h"
 #include "common/lang/string.h"
@@ -30,6 +32,9 @@ SelectStmt::~SelectStmt()
   if (nullptr != filter_stmt_) {
     delete filter_stmt_;
     filter_stmt_ = nullptr;
+  }
+  for (Expression * order_expr : order_exprs_) {
+    delete order_expr;
   }
 }
 
@@ -177,6 +182,20 @@ static RC collect_join_stmts(Db *db, Selects &select_sql, Table *default_table, 
   return RC::SUCCESS;
 }
 
+static RC check_order_expr(ast *t, ExprContext &ctx)
+{
+  size_t attr_cnt, aggr_cnt;
+  RC rc = check_leaf_node(t, ctx, attr_cnt, aggr_cnt);
+  if (rc != RC::SUCCESS) {
+    return rc;
+  }
+  if (aggr_cnt > 0) {
+    LOG_WARN("Cannot use aggreaget in order by");
+    return RC::SQL_SYNTAX;
+  }
+  return RC::SUCCESS;
+}
+
 RC SelectStmt::create_with_context(Db *db, Selects &select_sql, Stmt *&stmt, ExprContext &select_ctx)
 {
   size_t outer_table_size = select_ctx.GetTableSize();
@@ -235,6 +254,20 @@ RC SelectStmt::create_with_context(Db *db, Selects &select_sql, Stmt *&stmt, Exp
     return rc;
   }
 
+  // collect order by info
+  for (size_t i = 0; i < select_sql.order_attr_length; i++) {
+    rc = check_order_expr(select_sql.order_attr[i], select_ctx);
+    if (rc != RC::SUCCESS) {
+      return rc;
+    }
+  }
+  std::vector<Expression *> order_exprs;
+  std::vector<OrderPolicy> order_policies;
+  for (size_t i = 0; i < select_sql.order_attr_length; i++) {
+    order_exprs.push_back(ExprFactory::create(select_sql.order_attr[i], select_ctx));
+    order_policies.push_back(select_sql.order_policy[i]);
+  }
+
   // don't adding outer table into correlated subquery
   std::vector<Table *> tables;
   for (size_t i = outer_table_size; i < select_ctx.GetTableSize(); i++) {
@@ -248,6 +281,8 @@ RC SelectStmt::create_with_context(Db *db, Selects &select_sql, Stmt *&stmt, Exp
   select_stmt->exprs_.swap(exprs);
   select_stmt->filter_stmt_ = filter_stmt;
   select_stmt->select_attributes_ = select_attributes;
+  select_stmt->order_exprs_ = order_exprs;
+  select_stmt->order_policies_ = order_policies;
   stmt = select_stmt;
 
   select_stmt->Print();

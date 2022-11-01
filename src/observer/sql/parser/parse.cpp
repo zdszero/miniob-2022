@@ -359,6 +359,15 @@ void select_append_joins(Selects *selects, Join joins[], size_t join_num)
   selects->join_num = join_num;
 }
 
+void selects_set_order_info(Selects *selects, OrderPolicy policies[], ast *order_attr[], size_t order_attr_num)
+{
+  for (size_t i = 0; i < order_attr_num; i++) {
+    selects->order_policy[i] = policies[i];
+    selects->order_attr[i] = order_attr[i];
+  }
+  selects->order_attr_length = order_attr_num;
+}
+
 void selects_destroy(Selects *selects)
 {
   for (size_t i = 0; i < selects->relation_num; i++) {
@@ -381,6 +390,10 @@ void selects_destroy(Selects *selects)
     node_destroy(selects->exprs[i]);
   }
   selects->expr_num = 0;
+  for (size_t i = 0; i < selects->order_attr_length; i++) {
+    node_destroy(selects->order_attr[i]);
+  }
+  selects->order_attr_length = 0;
 }
 
 void inserts_init(Inserts *inserts, const char *relation_name)
