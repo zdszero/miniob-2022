@@ -128,7 +128,7 @@ static void collect_exprs(Selects &select_sql, const ExprContext &ctx, std::vect
   }
 }
 
-static RC collect_tables(Db *db, std::vector<Table *> &tables, Selects &select_sql, ExprContext &ctx)
+static RC collect_tables(Db *db, Selects &select_sql, ExprContext &ctx)
 {
   for (int i = select_sql.relation_num - 1; i >= 0; i--) {
     const char *table_name = select_sql.relations[i];
@@ -144,7 +144,6 @@ static RC collect_tables(Db *db, std::vector<Table *> &tables, Selects &select_s
     }
 
     ctx.AddTable(table);
-    tables.push_back(table);
   }
   return RC::SUCCESS;
 }
@@ -180,14 +179,14 @@ static RC collect_join_stmts(Db *db, Selects &select_sql, Table *default_table, 
 
 RC SelectStmt::create_with_context(Db *db, Selects &select_sql, Stmt *&stmt, ExprContext &select_ctx)
 {
+  size_t outer_table_size = select_ctx.GetTableSize();
   if (nullptr == db) {
     LOG_WARN("invalid argument. db is null");
     return RC::INVALID_ARGUMENT;
   }
 
   // collect tables in `from` statement and set default table
-  std::vector<Table *> tables;
-  RC rc = collect_tables(db, tables, select_sql, select_ctx);
+  RC rc = collect_tables(db, select_sql, select_ctx);
   if (rc != RC::SUCCESS) {
     return rc;
   }
@@ -234,6 +233,12 @@ RC SelectStmt::create_with_context(Db *db, Selects &select_sql, Stmt *&stmt, Exp
   if (rc != RC::SUCCESS) {
     LOG_WARN("cannot construct filter stmt");
     return rc;
+  }
+
+  // don't adding outer table into correlated subquery
+  std::vector<Table *> tables;
+  for (size_t i = outer_table_size; i < select_ctx.GetTableSize(); i++) {
+    tables.push_back(select_ctx.GetTables()[i]);
   }
 
   // everything alright
