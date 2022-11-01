@@ -23,8 +23,8 @@ class Table;
 class TableScanOperator : public Operator
 {
 public:
-  TableScanOperator(Table *table)
-    : table_(table)
+  TableScanOperator(Table *table, Tuple *outer_tuple=nullptr)
+    : table_(table), outer_tuple_(outer_tuple)
   {}
 
   virtual ~TableScanOperator();
@@ -48,9 +48,11 @@ public:
   // RC tuple_cell_spec_at(int index, TupleCellSpec &spec) const override;
 private:
   Table *table_ = nullptr;
+  Tuple *outer_tuple_;
   RecordFileScanner record_scanner_;
   Record current_record_;
   RowTuple tuple_;
+  CartesianTuple cart_tuple_;
   std::vector<Tuple *> tuple_copies_;
   std::vector<Record *> record_copies;
 };

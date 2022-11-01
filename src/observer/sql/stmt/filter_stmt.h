@@ -46,42 +46,18 @@ public:
     if (correlated_) {
       delete sub_select_;
     }
+    if (left_is_select_) {
+      delete left_select_;
+    }
+    if (right_is_select_) {
+      delete right_select_;
+    }
   }
 
-  void set_comp(CompOp comp)
-  {
-    comp_ = comp;
-  }
-
-  CompOp comp() const
-  {
-    return comp_;
-  }
-
-  void set_left(Expression *expr)
-  {
-    left_ = expr;
-  }
-  void set_right(Expression *expr)
-  {
-    right_ = expr;
-  }
-  void set_condition_type(ConditionType condition_type)
-  {
-    condition_type_ = condition_type;
-  }
-  ConditionType condition_type() const
-  {
-    return condition_type_;
-  }
-  Expression *left() const
-  {
-    return left_;
-  }
-  Expression *right() const
-  {
-    return right_;
-  }
+  void set_comp(CompOp comp) { comp_ = comp; }
+  void set_left(Expression *expr) { left_ = expr; }
+  void set_right(Expression *expr) { right_ = expr; }
+  void set_condition_type(ConditionType condition_type) { condition_type_ = condition_type; }
   void swap_left_right()
   {
     Expression *tmp = left_;
@@ -112,18 +88,7 @@ public:
       }
     }
   }
-  void set_exists(bool exists) {
-    exists_ = exists;
-  }
-  bool exists() const { return exists_; }
-  const std::vector<TupleCell> &in_cells() const
-  {
-    return in_cells_;
-  }
-  bool is_correlated() const
-  {
-    return correlated_;
-  }
+  void set_exists(bool exists) { exists_ = exists; }
   void set_cells(const std::vector<Value> &values)
   {
     cell_values_ = values;
@@ -136,25 +101,42 @@ public:
     correlated_ = true;
     sub_select_ = select_stmt;
   }
-  SelectStmt *sub_select() const
+  void set_condition_op(ConditionOp condop) { condop_ = condop; }
+  void set_left_select(SelectStmt *left_select)
   {
-    return sub_select_;
+    left_select_ = left_select;
+    left_is_select_ = true;
   }
-  void set_condition_op(ConditionOp condop)
+  void set_right_select(SelectStmt *right_select)
   {
-    condop_ = condop;
+    right_select_ = right_select;
+    right_is_select_ = true;
   }
-  ConditionOp condition_op() const
-  {
-    return condop_;
-  }
+  // getter
+  ConditionOp condition_op() const               { return condop_;          }
+  SelectStmt *sub_select() const                 { return sub_select_;      }
+  SelectStmt *left_select() const                { return left_select_;     }
+  SelectStmt *right_select() const               { return right_select_;    }
+  bool is_correlated() const                     { return correlated_;      }
+  const std::vector<TupleCell> &in_cells() const { return in_cells_;        }
+  ConditionType condition_type() const           { return condition_type_;  }
+  Expression *left() const                       { return left_;            }
+  Expression *right() const                      { return right_;           }
+  CompOp comp() const                            { return comp_;            }
+  bool exists() const                            { return exists_;          }
+  bool left_is_select() const                    { return left_is_select_;  }
+  bool right_is_select() const                   { return right_is_select_; }
 
 private:
   CompOp comp_ = NO_OP;
   ConditionOp condop_;
   ConditionType condition_type_;
-  Expression *left_ = nullptr;
-  Expression *right_ = nullptr;
+  bool left_is_select_{false};
+  bool right_is_select_{false};
+  Expression *left_{nullptr};
+  Expression *right_{nullptr};
+  SelectStmt *left_select_{nullptr};
+  SelectStmt *right_select_{nullptr};
   bool exists_{false};
   bool correlated_{false};
   SelectStmt *sub_select_{nullptr};

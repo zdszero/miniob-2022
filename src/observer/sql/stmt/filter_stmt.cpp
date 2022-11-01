@@ -5,7 +5,6 @@ See the Mulan PSL v2 for more details. */
 // Created by Wangyunlai on 2022/5/22.
 //
 
-#include "common/lang/defer.h"
 #include "rc.h"
 #include "common/log/log.h"
 #include "common/lang/string.h"
@@ -152,38 +151,66 @@ RC FilterStmt::create_filter_unit_compare(Db *db, ExprContext &ctx, Condition &c
   RC rc = RC::SUCCESS;
   Expression *left = nullptr;
   Expression *right = nullptr;
+  Stmt *left_select = nullptr;
+  Stmt *right_select = nullptr;
+  bool left_use_select = false;
+  bool right_use_select = false;
 
   if (condition.left_is_select) {
-    Stmt *left_select = nullptr;
-    DEFER([left_select]() { delete left_select; });
+    if (condition.left_select->expr_num != 1) {
+      LOG_WARN("fetch more than 1 fields in sub query is wrong");
+      return RC::SQL_SYNTAX;
+    }
     rc = SelectStmt::create(db, *condition.left_select, left_select);
-    if (rc != RC::SUCCESS) {
-      return rc;
+    if (rc == RC::SUCCESS) {
+      SubSelectOperator oper(static_cast<SelectStmt *>(left_select), nullptr);
+      TupleCell left_cell;
+      rc = oper.GetOneResult(left_cell);
+      if (rc != RC::SUCCESS) {
+        return rc;
+      }
+      left = new ValueExpr(left_cell.to_value());
+      delete left_select;
+    } else {
+      ExprContext correlated_ctx;
+      for (Table *tbl : ctx.GetTables()) {
+        correlated_ctx.AddTable(tbl);
+      }
+      rc = SelectStmt::create_with_context(db, *condition.left_select, left_select, correlated_ctx);
+      if (rc != RC::SUCCESS) {
+        return rc;
+      }
+      left_use_select = true;
     }
-    SubSelectOperator oper(static_cast<SelectStmt *>(left_select), nullptr);
-    TupleCell left_cell;
-    rc = oper.GetOneResult(left_cell);
-    if (rc != RC::SUCCESS) {
-      return rc;
-    }
-    left = new ValueExpr(left_cell.to_value());  // free?
   } else {
     left = ExprFactory::create(condition.left_ast, ctx);
   }
   if (condition.right_is_select) {
-    Stmt *right_select = nullptr;
-    DEFER([right_select]() { delete right_select; });
+    if (condition.right_select->expr_num != 1) {
+      LOG_WARN("fetch more than 1 fields in sub query is wrong");
+      return RC::SQL_SYNTAX;
+    }
     rc = SelectStmt::create(db, *condition.right_select, right_select);
-    if (rc != RC::SUCCESS) {
-      return rc;
+    if (rc == RC::SUCCESS) {
+      SubSelectOperator oper(static_cast<SelectStmt *>(right_select), nullptr);
+      TupleCell right_cell;
+      rc = oper.GetOneResult(right_cell);
+      if (rc != RC::SUCCESS) {
+        return rc;
+      }
+      right = new ValueExpr(right_cell.to_value());
+      delete right_select;
+    } else {
+      ExprContext correlated_ctx;
+      for (Table *tbl : ctx.GetTables()) {
+        correlated_ctx.AddTable(tbl);
+      }
+      rc = SelectStmt::create_with_context(db, *condition.right_select, right_select, correlated_ctx);
+      if (rc != RC::SUCCESS) {
+        return rc;
+      }
+      right_use_select = true;
     }
-    SubSelectOperator oper(static_cast<SelectStmt *>(right_select), nullptr);
-    TupleCell right_cell;
-    rc = oper.GetOneResult(right_cell);
-    if (rc != RC::SUCCESS) {
-      return rc;
-    }
-    right = new ValueExpr(right_cell.to_value());
   } else {
     right = ExprFactory::create(condition.right_ast, ctx);
   }
@@ -198,8 +225,17 @@ RC FilterStmt::create_filter_unit_compare(Db *db, ExprContext &ctx, Condition &c
   }
 
   filter_unit = new FilterUnit();
-  filter_unit->set_left(left);
-  filter_unit->set_right(right);
+  if (left_use_select) {
+    assert(left_select != nullptr);
+    filter_unit->set_left_select(static_cast<SelectStmt *>(left_select));
+  } else {
+    filter_unit->set_left(left);
+  }
+  if (right_use_select) {
+    filter_unit->set_right_select(static_cast<SelectStmt *>(right_select));
+  } else {
+    filter_unit->set_right(right);
+  }
   filter_unit->set_comp(condition.comp);
   filter_unit->set_condition_type(condition.condition_type);
   filter_unit->set_condition_op(condition.condop);
@@ -212,7 +248,6 @@ RC FilterStmt::create_filter_unit_exists(Db *db, ExprContext &ctx, Condition &co
   assert(condition.condition_type == ConditionType::COND_EXISTS);
   assert(condition.left_select != nullptr);
   Stmt *sub_select_stmt = nullptr;
-  DEFER([sub_select_stmt]() { delete sub_select_stmt; });
   rc = SelectStmt::create(db, *condition.left_select, sub_select_stmt);
   if (rc == RC::SUCCESS) {
     SubSelectOperator oper(static_cast<SelectStmt *>(sub_select_stmt), nullptr);
@@ -238,6 +273,9 @@ RC FilterStmt::create_filter_unit_exists(Db *db, ExprContext &ctx, Condition &co
     filter_unit->set_sub_select(static_cast<SelectStmt *>(sub_select_stmt));
   }
 
+  if (!filter_unit->is_correlated()) {
+    delete sub_select_stmt;
+  }
   filter_unit->set_comp(condition.comp);
   filter_unit->set_condition_type(condition.condition_type);
   filter_unit->set_condition_op(condition.condop);

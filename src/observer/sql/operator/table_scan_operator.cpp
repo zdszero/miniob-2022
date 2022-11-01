@@ -53,6 +53,10 @@ RC TableScanOperator::close()
 Tuple *TableScanOperator::current_tuple()
 {
   tuple_.set_record(&current_record_);
+  if (outer_tuple_ != nullptr) {
+    cart_tuple_.set_tuples(std::vector<Tuple *>{outer_tuple_, &tuple_});
+    return &cart_tuple_;
+  }
   return &tuple_;
 }
 

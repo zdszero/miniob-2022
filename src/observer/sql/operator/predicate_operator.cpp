@@ -14,6 +14,7 @@ See the Mulan PSL v2 for more details. */
 
 #include "common/lang/defer.h"
 #include "common/log/log.h"
+#include "sql/operator/aggregate_operator.h"
 #include "sql/operator/predicate_operator.h"
 #include "sql/operator/subselect_operator.h"
 #include "sql/operator/table_scan_operator.h"
@@ -61,6 +62,24 @@ Tuple *PredicateOperator::current_tuple()
   return children_[0]->current_tuple();
 }
 
+static RC fetch_inner_value(SelectStmt *select_stmt, Tuple *outer_tuple, TupleCell &cell)
+{
+  Table *table = select_stmt->tables()[0];
+  TableScanOperator *table_scan_oper = new TableScanOperator(table, outer_tuple);
+  PredicateOperator *pred_oper = new PredicateOperator(select_stmt->filter_stmt());
+  assert(!select_stmt->select_attributes());
+  AggregateOperator *aggr_oper = new AggregateOperator(select_stmt->exprs());
+  pred_oper->add_child(table_scan_oper);
+  aggr_oper->add_child(pred_oper);
+  RC rc = aggr_oper->open();
+  if (rc != RC::SUCCESS) {
+    return rc;
+  }
+  cell = TupleCell(aggr_oper->first_result().to_value()); // copy
+  delete aggr_oper;
+  return RC::SUCCESS;
+}
+
 bool PredicateOperator::do_compare_unit(Tuple &tuple, const FilterUnit *filter_unit)
 {
   CompOp comp = filter_unit->comp();
@@ -68,10 +87,19 @@ bool PredicateOperator::do_compare_unit(Tuple &tuple, const FilterUnit *filter_u
   TupleCell right_cell;
   RC rc;
 
-  assert(filter_unit->left() && filter_unit->right());
-  rc = filter_unit->left()->get_value(tuple, left_cell);
+  if (filter_unit->left_is_select()) {
+    SelectStmt *left_select = filter_unit->left_select();
+    rc = fetch_inner_value(left_select, &tuple, left_cell);
+  } else {
+    rc = filter_unit->left()->get_value(tuple, left_cell);
+  }
   assert(rc == RC::SUCCESS);
-  rc = filter_unit->right()->get_value(tuple, right_cell);
+  if (filter_unit->right_is_select()) {
+    SelectStmt *right_select = filter_unit->right_select();
+    rc = fetch_inner_value(right_select, &tuple, right_cell);
+  } else {
+    rc = filter_unit->right()->get_value(tuple, right_cell);
+  }
   assert(rc == RC::SUCCESS);
 
   if (comp == IS) {
