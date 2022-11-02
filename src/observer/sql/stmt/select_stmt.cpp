@@ -36,6 +36,9 @@ SelectStmt::~SelectStmt()
   for (Expression * order_expr : order_exprs_) {
     delete order_expr;
   }
+  for (Expression * group_by : group_bys_) {
+    delete group_by;
+  }
 }
 
 void SelectStmt::Print() const
@@ -78,16 +81,48 @@ static RC check_selects(Selects &select_sql, size_t &attr_cnt, size_t &aggr_cnt,
 {
   attr_cnt = 0;
   aggr_cnt = 0;
+  std::vector<ast *> attr_nodes;
+  std::vector<ast *> aggr_nodes;
+  for (size_t i = 0; i < select_sql.group_by_length; i++) {
+    ast *group_by = select_sql.group_bys[i];
+    if (group_by->nodetype != NodeType::ATTRN) {
+      LOG_WARN("using other expressions other than attributes in group by");
+      return RC::SQL_SYNTAX;
+    }
+  }
   for (size_t i = 0; i < select_sql.expr_num; i++) {
+    size_t cur_attr_cnt = 0;
+    size_t cur_aggr_cnt = 0;
     ast *t = select_sql.exprs[i];
-    RC rc = check_leaf_node(t, ctx, attr_cnt, aggr_cnt);
+    RC rc = check_leaf_node(t, ctx, cur_attr_cnt, cur_aggr_cnt);
     if (rc != RC::SUCCESS) {
       return rc;
     }
+    if (cur_attr_cnt > 0) {
+      attr_nodes.push_back(select_sql.exprs[i]);
+    }
+    if (cur_aggr_cnt > 0) {
+      aggr_nodes.push_back(select_sql.exprs[i]);
+    }
+    attr_cnt += cur_attr_cnt;
+    aggr_cnt += cur_aggr_cnt;
   }
   if (aggr_cnt > 0 && attr_cnt > 0) {
-    LOG_WARN("attribute and aggregate cannot be selected together\n");
-    return RC::SQL_SYNTAX;
+    // check if all attrbutes are in group by
+    for (ast *t : attr_nodes) {
+      bool found = false;
+      for (size_t i = 0; i < select_sql.group_by_length; i++) {
+        ast *group_by = select_sql.group_bys[i];
+        if (strcmp(group_by->attr.attribute_name, t->attr.attribute_name) == 0) {
+          found = true;
+          break;
+        }
+      }
+      if (found == false) {
+        LOG_WARN("attributes (not in group by) cannot be selected with aggregate together");
+        return RC::SQL_SYNTAX;
+      }
+    }
   }
   return RC::SUCCESS;
 }
@@ -182,7 +217,7 @@ static RC collect_join_stmts(Db *db, Selects &select_sql, Table *default_table, 
   return RC::SUCCESS;
 }
 
-static RC check_order_expr(ast *t, ExprContext &ctx)
+static RC check_only_attr(ast *t, ExprContext &ctx)
 {
   size_t attr_cnt, aggr_cnt;
   RC rc = check_leaf_node(t, ctx, attr_cnt, aggr_cnt);
@@ -235,11 +270,11 @@ RC SelectStmt::create_with_context(Db *db, Selects &select_sql, Stmt *&stmt, Exp
     return rc;
   }
   bool select_attributes;
-  if (attr_cnt > 0) {
-    select_attributes = true;
-  }
   if (aggr_cnt > 0) {
     select_attributes = false;
+  } else {
+    assert(attr_cnt > 0);
+    select_attributes = true;
   }
 
   // collect exprs
@@ -256,7 +291,7 @@ RC SelectStmt::create_with_context(Db *db, Selects &select_sql, Stmt *&stmt, Exp
 
   // collect order by info
   for (size_t i = 0; i < select_sql.order_attr_length; i++) {
-    rc = check_order_expr(select_sql.order_attr[i], select_ctx);
+    rc = check_only_attr(select_sql.order_attr[i], select_ctx);
     if (rc != RC::SUCCESS) {
       return rc;
     }
@@ -266,6 +301,18 @@ RC SelectStmt::create_with_context(Db *db, Selects &select_sql, Stmt *&stmt, Exp
   for (size_t i = 0; i < select_sql.order_attr_length; i++) {
     order_exprs.push_back(ExprFactory::create(select_sql.order_attr[i], select_ctx));
     order_policies.push_back(select_sql.order_policy[i]);
+  }
+
+  // collect group by info
+  for (size_t i = 0; i < select_sql.group_by_length; i++) {
+    rc = check_only_attr(select_sql.group_bys[i], select_ctx);
+    if (rc != RC::SUCCESS) {
+      return rc;
+    }
+  }
+  std::vector<Expression *> group_bys;
+  for (size_t i = 0; i < select_sql.group_by_length; i++) {
+    group_bys.push_back(ExprFactory::create(select_sql.group_bys[i], select_ctx));
   }
 
   // don't adding outer table into correlated subquery
@@ -283,6 +330,7 @@ RC SelectStmt::create_with_context(Db *db, Selects &select_sql, Stmt *&stmt, Exp
   select_stmt->select_attributes_ = select_attributes;
   select_stmt->order_exprs_ = order_exprs;
   select_stmt->order_policies_ = order_policies;
+  select_stmt->group_bys_ = group_bys;
   stmt = select_stmt;
 
   select_stmt->Print();

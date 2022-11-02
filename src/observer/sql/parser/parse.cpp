@@ -315,7 +315,7 @@ void attr_info_destroy(AttrInfo *attr_info)
 
 void selects_init(Selects *selects, ...);
 
-void select_append_exprs(Selects *selects, ast* exprs[], size_t expr_num)
+void selects_append_exprs(Selects *selects, ast* exprs[], size_t expr_num)
 {
   assert(expr_num <= MAX_NUM);
   for (size_t i = 0; i < expr_num; i++) {
@@ -350,7 +350,7 @@ void selects_set_condition_ops(Selects *selects, ConditionOp condops[], size_t o
   selects->conditions[op_num].condop = ConditionOp::COND_END;
 }
 
-void select_append_joins(Selects *selects, Join joins[], size_t join_num)
+void selects_append_joins(Selects *selects, Join joins[], size_t join_num)
 {
   assert(join_num < sizeof(selects->joins) / sizeof(selects->joins[0]));
   for (size_t i = 0; i < join_num; i++) {
@@ -366,6 +366,14 @@ void selects_set_order_info(Selects *selects, OrderPolicy policies[], ast *order
     selects->order_attr[i] = order_attr[i];
   }
   selects->order_attr_length = order_attr_num;
+}
+
+void selects_set_group_by(Selects *selects, ast *group_bys[], size_t group_by_num)
+{
+  for (size_t i = 0; i < group_by_num; i++) {
+    selects->group_bys[i] = group_bys[i];
+  }
+  selects->group_by_length = group_by_num;
 }
 
 void selects_destroy(Selects *selects)
@@ -394,6 +402,11 @@ void selects_destroy(Selects *selects)
     node_destroy(selects->order_attr[i]);
   }
   selects->order_attr_length = 0;
+
+  for (size_t i = 0; i < selects->group_by_length; i++) {
+    node_destroy(selects->group_bys[i]);
+  }
+  selects->group_by_length = 0;
 }
 
 void inserts_init(Inserts *inserts, const char *relation_name)

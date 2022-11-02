@@ -160,39 +160,91 @@ RC AggregateOperator::open()
     } else if (expr->type() == ExprType::VALUE) {
       continue;
     } else if (expr->type() == ExprType::COMPOUND) {
-      print_expr(expr, 0);
       collect_aggr_exprs(static_cast<CompoundExpr *>(expr), aggr_exprs);
     }
   }
 
-  // add all tuples to hash table
-  for (AggregateExpr *expr : aggr_exprs) {
-    agt_.add_expr(expr);
-  }
-
-  while ((rc = child->next()) == RC::SUCCESS) {
-    Tuple *t = child->current_tuple();
-    agt_.add_tuple(t);
-  }
-
-  for (AggregateExpr *expr : aggr_exprs) {
-    expr->set_cell(agt_.get_result(expr));
-  }
-
-  results_.reserve(exprs_.size());
-  int i = 0;
-  for (Expression *expr : exprs_) {
-    assert(expr->type() != ExprType::FIELD);
-    RowTuple unused;
-    TupleCell cell;
-    expr->get_value(unused, cell);
-    std::stringstream ss;
-    cell.to_string(ss);
-    results_.push_back(ss.str());
-    if (i == 0) {
-      cell_ = cell;
+  if (is_group_by_) {
+    while ((rc = child->next()) == RC::SUCCESS) {
+      Tuple *t = child->current_tuple();
+      std::vector<TupleCell> group_cells;
+      for (Expression *group_by : group_bys_) {
+        TupleCell group_cell;
+        group_by->get_value(*t, group_cell);
+        group_cells.push_back(group_cell);
+      }
+      if (!group_by_tbls_.count(group_cells)) {
+        AggregationTable agt;
+        for (AggregateExpr *expr : aggr_exprs) {
+          agt.add_expr(expr);
+        }
+        group_by_tbls_.insert({group_cells, agt});
+      }
+      group_by_tbls_[group_cells].add_tuple(t);
     }
-    i++;
+
+    for (auto it = group_by_tbls_.begin(); it != group_by_tbls_.end(); it++) {
+      auto &cells = it->first;
+      auto &agt = it->second;
+      for (AggregateExpr *expr : aggr_exprs) {
+        expr->set_cell(agt.get_result(expr));
+      }
+      std::vector<std::string> v;
+      v.reserve(exprs_.size());
+      for (Expression *expr : exprs_) {
+        TupleCell cell;
+        if (expr->type() == ExprType::FIELD) {
+          size_t idx = 0;
+          for (; idx < group_bys_.size(); idx++) {
+            FieldExpr *cur_expr = static_cast<FieldExpr *>(expr);
+            FieldExpr *group_expr = static_cast<FieldExpr *>(group_bys_[idx]);
+            if (strcmp(cur_expr->field_name(), group_expr->field_name()) == 0) {
+              break;
+            }
+          }
+          cell = cells[idx];
+        } else {
+          RowTuple unused;
+          expr->get_value(unused, cell);
+        }
+        std::stringstream ss;
+        cell.to_string(ss);
+        v.push_back(ss.str());
+      }
+      results_.push_back(v);
+    }
+
+  } else {
+    // add all tuples to hash table
+    for (AggregateExpr *expr : aggr_exprs) {
+      agt_.add_expr(expr);
+    }
+
+    while ((rc = child->next()) == RC::SUCCESS) {
+      Tuple *t = child->current_tuple();
+      agt_.add_tuple(t);
+    }
+
+    for (AggregateExpr *expr : aggr_exprs) {
+      expr->set_cell(agt_.get_result(expr));
+    }
+
+    int i = 0;
+    results_.push_back(std::vector<std::string>{});
+    results_[0].reserve(exprs_.size());
+    for (Expression *expr : exprs_) {
+      assert(expr->type() != ExprType::FIELD);
+      RowTuple unused;
+      TupleCell cell;
+      expr->get_value(unused, cell);
+      std::stringstream ss;
+      cell.to_string(ss);
+      results_[0].push_back(ss.str());
+      if (i == 0) {
+        cell_ = cell;
+      }
+      i++;
+    }
   }
 
   return RC::SUCCESS;

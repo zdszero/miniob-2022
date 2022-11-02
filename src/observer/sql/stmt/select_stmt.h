@@ -74,6 +74,10 @@ public:
   {
     return order_exprs_;
   }
+  const std::vector<Expression *> group_bys() const
+  {
+    return group_bys_;
+  }
   std::vector<OrderPolicy> order_policies() const
   {
     return order_policies_;
@@ -84,6 +88,7 @@ private:
   bool select_attributes_{true};
   std::vector<Expression *> exprs_;
   std::vector<Expression *> order_exprs_;
+  std::vector<Expression *> group_bys_;
   std::vector<OrderPolicy> order_policies_;
   std::vector<JoinStmt> join_stmts_;
   Tables tables_;

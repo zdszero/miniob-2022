@@ -83,44 +83,45 @@ extern int yydebug;
     ORDER = 289,
     BY = 290,
     ASC = 291,
-    SEMICOLON = 292,
-    DOT = 293,
-    COMMA = 294,
-    LBRACE = 295,
-    RBRACE = 296,
-    INT_T = 297,
-    STRING_T = 298,
-    FLOAT_T = 299,
-    DATE_T = 300,
-    TEXT_T = 301,
-    NULL_T = 302,
-    NULLABLE = 303,
-    EQ = 304,
-    LT = 305,
-    GT = 306,
-    LE = 307,
-    GE = 308,
-    NE = 309,
-    LIKE = 310,
-    NOT = 311,
-    ISS = 312,
-    EXISTSS = 313,
-    INS = 314,
-    MAX = 315,
-    MIN = 316,
-    AVG = 317,
-    SUM = 318,
-    COUNT = 319,
-    SLASH = 320,
-    PLUS = 321,
-    MINUS = 322,
-    NUMBER = 323,
-    FLOAT = 324,
-    ID = 325,
-    PATH = 326,
-    SSS = 327,
-    STAR = 328,
-    STRING_V = 329
+    GROUP = 292,
+    SEMICOLON = 293,
+    DOT = 294,
+    COMMA = 295,
+    LBRACE = 296,
+    RBRACE = 297,
+    INT_T = 298,
+    STRING_T = 299,
+    FLOAT_T = 300,
+    DATE_T = 301,
+    TEXT_T = 302,
+    NULL_T = 303,
+    NULLABLE = 304,
+    EQ = 305,
+    LT = 306,
+    GT = 307,
+    LE = 308,
+    GE = 309,
+    NE = 310,
+    LIKE = 311,
+    NOT = 312,
+    ISS = 313,
+    EXISTSS = 314,
+    INS = 315,
+    MAX = 316,
+    MIN = 317,
+    AVG = 318,
+    SUM = 319,
+    COUNT = 320,
+    SLASH = 321,
+    PLUS = 322,
+    MINUS = 323,
+    NUMBER = 324,
+    FLOAT = 325,
+    ID = 326,
+    PATH = 327,
+    SSS = 328,
+    STAR = 329,
+    STRING_V = 330
   };
 #endif
 
@@ -128,7 +129,7 @@ extern int yydebug;
 #if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
 union YYSTYPE
 {
-#line 121 "yacc_sql.y"
+#line 124 "yacc_sql.y"
 
   struct _Attr *attr;
   struct _Condition *condition1;
@@ -140,7 +141,7 @@ union YYSTYPE
 	char *position;
 	int order_policy1;
 
-#line 144 "yacc_sql.tab.h"
+#line 145 "yacc_sql.tab.h"
 
 };
 typedef union YYSTYPE YYSTYPE;

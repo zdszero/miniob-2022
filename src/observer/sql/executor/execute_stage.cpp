@@ -462,6 +462,7 @@ RC ExecuteStage::do_select(SQLStageEvent *sql_event)
     }
   } else {
     AggregateOperator *aggregate_oper = static_cast<AggregateOperator *>(oper);
+    aggregate_oper->set_group_by(select_stmt->group_bys());
     RC rc = aggregate_oper->open();
     if (rc != RC::SUCCESS) {
       LOG_ERROR("fail to execute aggregate operator\n");
@@ -469,15 +470,17 @@ RC ExecuteStage::do_select(SQLStageEvent *sql_event)
     }
     std::stringstream ss;
     print_aggregate_header(ss, select_stmt);
-    bool first = true;
-    for (const std::string &res : aggregate_oper->results()) {
-      if (!first) {
-        ss << " | ";
+    for (const std::vector<std::string> &res : aggregate_oper->results()){
+      bool first = true;
+      for (const std::string &res : res) {
+        if (!first) {
+          ss << " | ";
+        }
+        first = false;
+        ss << res;
       }
-      first = false;
-      ss << res;
+      ss << std::endl;
     }
-    ss << std::endl;
     session_event->set_response(ss.str());
   }
   return rc;

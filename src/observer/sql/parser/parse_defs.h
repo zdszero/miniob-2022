@@ -167,6 +167,8 @@ typedef struct _Selects {
   size_t order_attr_length;
   ast *order_attr[MAX_NUM];
   OrderPolicy order_policy[MAX_NUM];
+  ast *group_bys[MAX_NUM];
+  size_t group_by_length;
 } Selects;
 
 typedef struct {
@@ -332,13 +334,14 @@ void attr_info_init(AttrInfo *attr_info, const char *name, AttrType type, size_t
 void attr_info_destroy(AttrInfo *attr_info);
 
 void selects_init(Selects *selects, ...);
-void select_append_exprs(Selects *selects, ast *exprs[], size_t expr_num);
+void selects_append_exprs(Selects *selects, ast *exprs[], size_t expr_num);
 void selects_append_relation(Selects *selects, const char *relation_name);
 void selects_append_conditions(Selects *selects, Condition conditions[], size_t condition_num);
 void selects_set_condition_ops(Selects *selects, ConditionOp condops[], size_t op_num);
-void select_append_joins(Selects *selects, Join joins[], size_t join_num);
+void selects_append_joins(Selects *selects, Join joins[], size_t join_num);
 void selects_destroy(Selects *selects);
 void selects_set_order_info(Selects *selects, OrderPolicy policies[], ast *order_attr[], size_t order_attr_num);
+void selects_set_group_by(Selects *selects, ast *group_bys[], size_t group_by_num);
 
 void insert_append_exprs(Inserts *inserts, ast *exprs[], size_t expr_num);
 void inserts_init(Inserts *inserts, const char *relation_name);

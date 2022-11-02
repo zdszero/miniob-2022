@@ -27,6 +27,8 @@ typedef struct ParserContext {
 	size_t order_attr_length[MAX_NUM];
 	ast *order_attrs[MAX_NUM][MAX_NUM];
 	OrderPolicy orders[MAX_NUM][MAX_NUM];
+	size_t group_by_length[MAX_NUM];
+	ast *group_bys[MAX_NUM][MAX_NUM];
 
 	// conditions
   size_t condition_length[MAX_NUM];
@@ -106,6 +108,7 @@ void clear_selection(ParserContext *context, size_t select_idx)
 %token  CREATE DROP TABLE TABLES INDEX SELECT DESC SHOW SYNC INSERT DELETE
 				UPDATE TRX_BEGIN TRX_COMMIT TRX_ROLLBACK HELP EXIT INTO VALUES FROM
 				WHERE AND OR SET ON LOAD DATA INFILE INNER JOIN UNIQUE ORDER BY ASC
+				GROUP
 // punctuations
 %token SEMICOLON DOT COMMA LBRACE RBRACE
 // types
@@ -427,18 +430,35 @@ select:
 		;
 
 select_body:
-    begin_select select_expr select_exprs FROM ID rel_list inner_join_list where order_by
+    begin_select select_expr select_exprs FROM ID rel_list inner_join_list where group_by order_by
 		{
 			CONTEXT->ssql->flag=SCF_SELECT;//"select";
 
 			selects_append_relation(&CONTEXT->selects[CUR_SEL], $5);
 			selects_append_conditions(&CONTEXT->selects[CUR_SEL], CONTEXT->conditions[CUR_SEL], CONTEXT->condition_length[CUR_SEL]);
 			selects_set_condition_ops(&CONTEXT->selects[CUR_SEL], CONTEXT->condition_ops[CUR_SEL], CONTEXT->condition_op_length[CUR_SEL]);
-			select_append_joins(&CONTEXT->selects[CUR_SEL], CONTEXT->joins[CUR_SEL], CONTEXT->join_length[CUR_SEL]);
-			select_append_exprs(&CONTEXT->selects[CUR_SEL], CONTEXT->exprs[CUR_SEL], CONTEXT->expr_length[CUR_SEL]);
+			selects_append_joins(&CONTEXT->selects[CUR_SEL], CONTEXT->joins[CUR_SEL], CONTEXT->join_length[CUR_SEL]);
+			selects_append_exprs(&CONTEXT->selects[CUR_SEL], CONTEXT->exprs[CUR_SEL], CONTEXT->expr_length[CUR_SEL]);
 			selects_set_order_info(&CONTEXT->selects[CUR_SEL], CONTEXT->orders[CUR_SEL], CONTEXT->order_attrs[CUR_SEL], CONTEXT->order_attr_length[CUR_SEL]);
+			selects_set_group_by(&CONTEXT->selects[CUR_SEL], CONTEXT->group_bys[CUR_SEL], CONTEXT->group_by_length[CUR_SEL]);
 	}
 	;
+
+group_by:
+		/* empty */
+		| GROUP BY group_by_expr group_by_expr_list
+		;
+
+group_by_expr:
+		exp {
+			CONTEXT->group_bys[CUR_SEL][CONTEXT->group_by_length[CUR_SEL]++] = $1;
+		}
+		;
+
+group_by_expr_list:
+		/* empty */
+		| COMMA group_by_expr group_by_expr_list
+		;
 
 order_by:
 		/* empty */

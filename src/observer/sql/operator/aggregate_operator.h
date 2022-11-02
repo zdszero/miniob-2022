@@ -1,13 +1,30 @@
 #pragma once
 
-#include "sql/expr/tuple.h"
-#include "sql/parser/parse_defs.h"
 #include "sql/operator/operator.h"
 #include "util/hash_util.h"
 #include "util/util.h"
 #include <cassert>
 #include <sstream>
 #include <vector>
+
+struct TupleCellsHasher {
+public:
+  hash_t operator()(const std::vector<TupleCell> &cells) const
+  {
+    hash_t ret = hash_one_cell(cells[0]);
+    for (size_t i = 1 ; i < cells.size(); i++) {
+      ret = HashUtil::CombineHashes(ret, hash_one_cell(cells[i]));
+    }
+    return ret;
+  }
+  hash_t hash_one_cell(const TupleCell &cell) const
+  {
+    AttrType type = cell.attr_type();
+    size_t type_hash = HashUtil::Hash(&type);
+    size_t val_hash = HashUtil::HashBytes(cell.data(), cell.length());
+    return HashUtil::CombineHashes(type_hash, val_hash);
+  }
+};
 
 class Aggregator {
 public:
@@ -48,27 +65,25 @@ public:
   RC next() override;
   RC close() override;
   Tuple *current_tuple() override;
-  OperatorType type() override
-  {
-    return OperatorType::AGGREGATE;
-  }
-
-  const std::vector<std::string> &results() const
-  {
-    return results_;
-  }
-  const std::vector<Expression *> &aggr_fields() const
-  {
-    return exprs_;
-  }
-  TupleCell first_result() const
-  {
-    return cell_;
+  OperatorType type() override                                 { return OperatorType::AGGREGATE; }
+  const std::vector<std::vector<std::string>> &results() const { return results_;                }
+  const std::vector<Expression *> &aggr_fields() const         { return exprs_;                  }
+  TupleCell first_result() const                               { return cell_;                   }
+  void set_group_by(const std::vector<Expression *> &group_bys) {
+    group_bys_ = group_bys;
+    if (group_bys.size() > 0) {
+      is_group_by_ = true;
+    } else {
+      is_group_by_ = false;
+    }
   }
 
 private:
   std::vector<Expression *> exprs_;
   AggregationTable agt_;
-  std::vector<std::string> results_;
+  std::vector<std::vector<std::string>> results_;
   TupleCell cell_;
+  bool is_group_by_{false};
+  std::vector<Expression *> group_bys_;
+  std::unordered_map<std::vector<TupleCell>, AggregationTable, TupleCellsHasher> group_by_tbls_;
 };
