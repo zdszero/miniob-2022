@@ -219,13 +219,14 @@ static RC collect_join_stmts(Db *db, Selects &select_sql, Table *default_table, 
 
 static RC check_only_attr(ast *t, ExprContext &ctx)
 {
-  size_t attr_cnt, aggr_cnt;
+  size_t attr_cnt = 0;
+  size_t aggr_cnt = 0;
   RC rc = check_leaf_node(t, ctx, attr_cnt, aggr_cnt);
   if (rc != RC::SUCCESS) {
     return rc;
   }
   if (aggr_cnt > 0) {
-    LOG_WARN("Cannot use aggreaget in order by");
+    LOG_WARN("Cannot use aggregate in order by or group by");
     return RC::SQL_SYNTAX;
   }
   return RC::SUCCESS;
