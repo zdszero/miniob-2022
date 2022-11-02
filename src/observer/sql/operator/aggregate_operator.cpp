@@ -1,5 +1,6 @@
 #include "sql/operator/aggregate_operator.h"
 #include "common/lang/string.h"
+#include "sql/operator/predicate_operator.h"
 
 Aggregator::Aggregator(AggregateExpr *expr) : field_(expr->field()), aggr_type_(expr->aggr_type())
 {
@@ -163,6 +164,14 @@ RC AggregateOperator::open()
       collect_aggr_exprs(static_cast<CompoundExpr *>(expr), aggr_exprs);
     }
   }
+  if (having_ != nullptr) {
+    if (having_->left()->type() == ExprType::AGGREGATE) {
+      aggr_exprs.push_back(static_cast<AggregateExpr *>(having_->left()));
+    }
+    if (having_->right()->type() == ExprType::AGGREGATE) {
+      aggr_exprs.push_back(static_cast<AggregateExpr *>(having_->right()));
+    }
+  }
 
   if (is_group_by_) {
     while ((rc = child->next()) == RC::SUCCESS) {
@@ -188,6 +197,10 @@ RC AggregateOperator::open()
       auto &agt = it->second;
       for (AggregateExpr *expr : aggr_exprs) {
         expr->set_cell(agt.get_result(expr));
+      }
+      RowTuple unused;
+      if (having_ != nullptr && PredicateOperator::do_filter_unit(unused, having_) == false) {
+        continue;
       }
       std::vector<std::string> v;
       v.reserve(exprs_.size());
@@ -227,6 +240,11 @@ RC AggregateOperator::open()
 
     for (AggregateExpr *expr : aggr_exprs) {
       expr->set_cell(agt_.get_result(expr));
+    }
+    
+    RowTuple unused;
+    if (having_ != nullptr && PredicateOperator::do_filter_unit(unused, having_)) {
+      return RC::SUCCESS;
     }
 
     int i = 0;

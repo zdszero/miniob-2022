@@ -108,7 +108,7 @@ void clear_selection(ParserContext *context, size_t select_idx)
 %token  CREATE DROP TABLE TABLES INDEX SELECT DESC SHOW SYNC INSERT DELETE
 				UPDATE TRX_BEGIN TRX_COMMIT TRX_ROLLBACK HELP EXIT INTO VALUES FROM
 				WHERE AND OR SET ON LOAD DATA INFILE INNER JOIN UNIQUE ORDER BY ASC
-				GROUP
+				GROUP HAVING
 // punctuations
 %token SEMICOLON DOT COMMA LBRACE RBRACE
 // types
@@ -430,7 +430,7 @@ select:
 		;
 
 select_body:
-    begin_select select_expr select_exprs FROM ID rel_list inner_join_list where group_by order_by
+    begin_select select_expr select_exprs FROM ID rel_list inner_join_list where group_by having order_by
 		{
 			CONTEXT->ssql->flag=SCF_SELECT;//"select";
 
@@ -441,6 +441,15 @@ select_body:
 			selects_append_exprs(&CONTEXT->selects[CUR_SEL], CONTEXT->exprs[CUR_SEL], CONTEXT->expr_length[CUR_SEL]);
 			selects_set_order_info(&CONTEXT->selects[CUR_SEL], CONTEXT->orders[CUR_SEL], CONTEXT->order_attrs[CUR_SEL], CONTEXT->order_attr_length[CUR_SEL]);
 			selects_set_group_by(&CONTEXT->selects[CUR_SEL], CONTEXT->group_bys[CUR_SEL], CONTEXT->group_by_length[CUR_SEL]);
+	}
+	;
+
+having:
+	/* empty */
+	| HAVING exp comOp exp {
+		Condition condition;
+		condition_init(&condition, CONTEXT->comp[CUR_SEL], 0, $2, NULL, 0, $4, NULL);
+		selects_set_having(&CONTEXT->selects[CUR_SEL], &condition);
 	}
 	;
 

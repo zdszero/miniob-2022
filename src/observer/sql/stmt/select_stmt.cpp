@@ -231,6 +231,17 @@ static RC check_only_attr(ast *t, ExprContext &ctx)
   return RC::SUCCESS;
 }
 
+static RC check_having(Condition *condition)
+{
+  NodeType ltype = condition->left_ast->nodetype;
+  NodeType rtype = condition->right_ast->nodetype;
+  if (ltype != NodeType::AGGRN && rtype != NodeType::AGGRN) {
+    LOG_WARN("having must have aggregate");
+    return RC::SQL_SYNTAX;
+  }
+  return RC::SUCCESS;
+}
+
 RC SelectStmt::create_with_context(Db *db, Selects &select_sql, Stmt *&stmt, ExprContext &select_ctx)
 {
   size_t outer_table_size = select_ctx.GetTableSize();
@@ -315,6 +326,19 @@ RC SelectStmt::create_with_context(Db *db, Selects &select_sql, Stmt *&stmt, Exp
     group_bys.push_back(ExprFactory::create(select_sql.group_bys[i], select_ctx));
   }
 
+  // having
+  FilterUnit *having = nullptr;
+  if (select_sql.is_having) {
+    RC rc = check_having(&select_sql.having);
+    if (rc != RC::SUCCESS) {
+      return rc;
+    }
+    rc = FilterStmt::create_filter_unit(db, select_ctx, select_sql.having, having, true);
+    if (rc != RC::SUCCESS) {
+      return rc;
+    }
+  }
+
   // don't adding outer table into correlated subquery
   std::vector<Table *> tables;
   for (size_t i = outer_table_size; i < select_ctx.GetTableSize(); i++) {
@@ -331,6 +355,7 @@ RC SelectStmt::create_with_context(Db *db, Selects &select_sql, Stmt *&stmt, Exp
   select_stmt->order_exprs_ = order_exprs;
   select_stmt->order_policies_ = order_policies;
   select_stmt->group_bys_ = group_bys;
+  select_stmt->having_ = having;
   stmt = select_stmt;
 
   select_stmt->Print();

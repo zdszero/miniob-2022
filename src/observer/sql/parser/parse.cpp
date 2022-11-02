@@ -376,6 +376,12 @@ void selects_set_group_by(Selects *selects, ast *group_bys[], size_t group_by_nu
   selects->group_by_length = group_by_num;
 }
 
+void selects_set_having(Selects *selects, Condition *condition)
+{
+  selects->having = *condition;
+  selects->is_having = 1;
+}
+
 void selects_destroy(Selects *selects)
 {
   for (size_t i = 0; i < selects->relation_num; i++) {
@@ -407,6 +413,11 @@ void selects_destroy(Selects *selects)
     node_destroy(selects->group_bys[i]);
   }
   selects->group_by_length = 0;
+
+  if (selects->is_having) {
+    condition_destroy(&selects->having);
+  }
+  selects->is_having = 0;
 }
 
 void inserts_init(Inserts *inserts, const char *relation_name)

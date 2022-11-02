@@ -20,7 +20,7 @@ See the Mulan PSL v2 for more details. */
 #include "util/util.h"
 #include <cassert>
 
-static RC check_condition(Condition &condition, ExprContext &ctx)
+static RC check_condition(Condition &condition, ExprContext &ctx, bool is_having)
 {
   if (condition.condition_type == COND_COMPARE) {
     CompOp comp = condition.comp;
@@ -51,7 +51,7 @@ static RC check_condition(Condition &condition, ExprContext &ctx)
         return rc;
       }
     }
-    if (aggr_cnt > 0) {
+    if (aggr_cnt > 0 && is_having == false) {
       LOG_WARN("cannot use aggregation in condition\n");
       return RC::SQL_SYNTAX;
     }
@@ -122,7 +122,7 @@ RC FilterStmt::create(Db *db, ExprContext &ctx, Condition *conditions, int condi
   return rc;
 }
 
-RC FilterStmt::create_filter_unit(Db *db, ExprContext &ctx, Condition &condition, FilterUnit *&filter_unit)
+RC FilterStmt::create_filter_unit(Db *db, ExprContext &ctx, Condition &condition, FilterUnit *&filter_unit, bool is_having)
 {
   RC rc = RC::SUCCESS;
 
@@ -132,7 +132,7 @@ RC FilterStmt::create_filter_unit(Db *db, ExprContext &ctx, Condition &condition
     return RC::INVALID_ARGUMENT;
   }
 
-  rc = check_condition(condition, ctx);
+  rc = check_condition(condition, ctx, is_having);
   if (rc != RC::SUCCESS) {
     return rc;
   }

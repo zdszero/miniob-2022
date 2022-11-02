@@ -158,7 +158,7 @@ public:
 public:
   static RC create(Db *db, ExprContext &ctx, Condition *conditions, int condition_num, FilterStmt *&stmt);
 
-  static RC create_filter_unit(Db *db, ExprContext &ctx, Condition &condition, FilterUnit *&filter_unit);
+  static RC create_filter_unit(Db *db, ExprContext &ctx, Condition &condition, FilterUnit *&filter_unit, bool is_having=false);
 
 private:
   std::vector<FilterUnit *> filter_units_;  // 默认当前都是AND关系

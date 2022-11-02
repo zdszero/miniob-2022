@@ -463,6 +463,7 @@ RC ExecuteStage::do_select(SQLStageEvent *sql_event)
   } else {
     AggregateOperator *aggregate_oper = static_cast<AggregateOperator *>(oper);
     aggregate_oper->set_group_by(select_stmt->group_bys());
+    aggregate_oper->set_having(select_stmt->having());
     RC rc = aggregate_oper->open();
     if (rc != RC::SUCCESS) {
       LOG_ERROR("fail to execute aggregate operator\n");

@@ -23,6 +23,7 @@ See the Mulan PSL v2 for more details. */
 #include "sql/stmt/stmt.h"
 
 class FieldMeta;
+class FilterUnit;
 class FilterStmt;
 class Db;
 class Table;
@@ -82,6 +83,7 @@ public:
   {
     return order_policies_;
   }
+  FilterUnit *having() const { return having_; }
   void Print() const;
 
 private:
@@ -93,5 +95,6 @@ private:
   std::vector<JoinStmt> join_stmts_;
   Tables tables_;
   FilterStmt *filter_stmt_ = nullptr;
+  FilterUnit *having_ = nullptr;
 };
 

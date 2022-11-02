@@ -7,6 +7,8 @@
 #include <sstream>
 #include <vector>
 
+class FilterUnit;
+
 struct TupleCellsHasher {
 public:
   hash_t operator()(const std::vector<TupleCell> &cells) const
@@ -77,6 +79,9 @@ public:
       is_group_by_ = false;
     }
   }
+  void set_having(FilterUnit *having) {
+    having_ = having;
+  }
 
 private:
   std::vector<Expression *> exprs_;
@@ -86,4 +91,5 @@ private:
   bool is_group_by_{false};
   std::vector<Expression *> group_bys_;
   std::unordered_map<std::vector<TupleCell>, AggregationTable, TupleCellsHasher> group_by_tbls_;
+  FilterUnit *having_{nullptr};
 };

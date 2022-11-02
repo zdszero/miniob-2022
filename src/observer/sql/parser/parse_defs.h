@@ -169,6 +169,8 @@ typedef struct _Selects {
   OrderPolicy order_policy[MAX_NUM];
   ast *group_bys[MAX_NUM];
   size_t group_by_length;
+  int is_having;
+  Condition having;
 } Selects;
 
 typedef struct {
@@ -342,6 +344,7 @@ void selects_append_joins(Selects *selects, Join joins[], size_t join_num);
 void selects_destroy(Selects *selects);
 void selects_set_order_info(Selects *selects, OrderPolicy policies[], ast *order_attr[], size_t order_attr_num);
 void selects_set_group_by(Selects *selects, ast *group_bys[], size_t group_by_num);
+void selects_set_having(Selects *selects, Condition *condition);
 
 void insert_append_exprs(Inserts *inserts, ast *exprs[], size_t expr_num);
 void inserts_init(Inserts *inserts, const char *relation_name);
