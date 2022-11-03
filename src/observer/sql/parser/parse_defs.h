@@ -158,12 +158,14 @@ typedef struct _JoinConditon {
 typedef struct _Selects {
   size_t relation_num;            // Length of relations in Fro clause
   char *relations[MAX_NUM];       // relations in From clause
+  char *relation_alias[MAX_NUM];
   size_t condition_num;           // Length of conditions in Where clause
   Condition conditions[MAX_NUM];  // conditions in Where clause
   size_t join_num;
   Join joins[MAX_NUM];
   size_t expr_num;
   ast *exprs[MAX_NUM];
+  char *expr_alias[MAX_NUM];
   size_t order_attr_length;
   ast *order_attr[MAX_NUM];
   OrderPolicy order_policy[MAX_NUM];
@@ -336,8 +338,8 @@ void attr_info_init(AttrInfo *attr_info, const char *name, AttrType type, size_t
 void attr_info_destroy(AttrInfo *attr_info);
 
 void selects_init(Selects *selects, ...);
-void selects_append_exprs(Selects *selects, ast *exprs[], size_t expr_num);
-void selects_append_relation(Selects *selects, const char *relation_name);
+void selects_append_exprs(Selects *selects, ast *exprs[], char *expr_alias[], size_t expr_num);
+void selects_append_relation(Selects *selects, const char *relation_name, char *relation_alias);
 void selects_append_conditions(Selects *selects, Condition conditions[], size_t condition_num);
 void selects_set_condition_ops(Selects *selects, ConditionOp condops[], size_t op_num);
 void selects_append_joins(Selects *selects, Join joins[], size_t join_num);

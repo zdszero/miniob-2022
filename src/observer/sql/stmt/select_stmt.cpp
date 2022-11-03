@@ -23,6 +23,7 @@ See the Mulan PSL v2 for more details. */
 #include "util/util.h"
 #include "util/ast_util.h"
 #include "util/check.h"
+#include <set>
 
 SelectStmt::~SelectStmt()
 {
@@ -168,10 +169,12 @@ static void collect_exprs(Selects &select_sql, const ExprContext &ctx, std::vect
   }
 }
 
-static RC collect_tables(Db *db, Selects &select_sql, ExprContext &ctx)
+static RC collect_tables(Db *db, Selects &select_sql, ExprContext &ctx, std::unordered_map<std::string, std::string> &table_alias)
 {
-  for (int i = select_sql.relation_num - 1; i >= 0; i--) {
+  std::set<std::string> aliases;
+  for (int i = 0; i < select_sql.relation_num; i++) {
     const char *table_name = select_sql.relations[i];
+    const char *alias = select_sql.relation_alias[i];
     if (nullptr == table_name) {
       LOG_WARN("invalid argument. relation name is null. index=%d", i);
       return RC::INVALID_ARGUMENT;
@@ -182,8 +185,17 @@ static RC collect_tables(Db *db, Selects &select_sql, ExprContext &ctx)
       LOG_WARN("no such table. db=%s, table_name=%s", db->name(), table_name);
       return RC::SCHEMA_TABLE_NOT_EXIST;
     }
-
     ctx.AddTable(table);
+
+    if (nullptr != alias) {
+      if (aliases.count(alias)) {
+        LOG_WARN("duplicate table alias name");
+        return RC::SQL_SYNTAX;
+      }
+      aliases.emplace(alias);
+      ctx.SetAlias(table_name, alias);
+      table_alias[table_name] = alias;
+    }
   }
   return RC::SUCCESS;
 }
@@ -252,7 +264,8 @@ RC SelectStmt::create_with_context(Db *db, Selects &select_sql, Stmt *&stmt, Exp
   }
 
   // collect tables in `from` statement and set default table
-  RC rc = collect_tables(db, select_sql, select_ctx);
+  std::unordered_map<std::string, std::string> table_alias;
+  RC rc = collect_tables(db, select_sql, select_ctx, table_alias);
   if (rc != RC::SUCCESS) {
     return rc;
   }
@@ -357,6 +370,7 @@ RC SelectStmt::create_with_context(Db *db, Selects &select_sql, Stmt *&stmt, Exp
   select_stmt->order_policies_ = order_policies;
   select_stmt->group_bys_ = group_bys;
   select_stmt->having_ = having;
+  select_stmt->table_alias_ = table_alias;
   stmt = select_stmt;
 
   select_stmt->Print();

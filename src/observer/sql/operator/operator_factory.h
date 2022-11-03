@@ -57,7 +57,7 @@ private:
       auto project_oper = new ProjectOperator();
       project_oper->add_child(pred_oper);
       for (Expression *expr : select_stmt->exprs()) {
-        project_oper->add_projection(expr, select_stmt->tables().size() > 1);
+        project_oper->add_projection(expr, select_stmt->tables().size() > 1, select_stmt->table_alias());
       }
       return project_oper;
     } else {

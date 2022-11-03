@@ -47,6 +47,7 @@ typedef struct ParserContext {
 	// expressions
 	size_t expr_length[MAX_NUM];
 	ast* exprs[MAX_NUM][MAX_NUM];
+	char *expr_alias[MAX_NUM][MAX_NUM];
 	AggrType aggr_type[MAX_NUM];
 
 	size_t in_expr_length[MAX_NUM];
@@ -108,7 +109,7 @@ void clear_selection(ParserContext *context, size_t select_idx)
 %token  CREATE DROP TABLE TABLES INDEX SELECT DESC SHOW SYNC INSERT DELETE
 				UPDATE TRX_BEGIN TRX_COMMIT TRX_ROLLBACK HELP EXIT INTO VALUES FROM
 				WHERE AND OR SET ON LOAD DATA INFILE INNER JOIN UNIQUE ORDER BY ASC
-				GROUP HAVING
+				GROUP HAVING AS
 // punctuations
 %token SEMICOLON DOT COMMA LBRACE RBRACE
 // types
@@ -152,6 +153,7 @@ void clear_selection(ParserContext *context, size_t select_idx)
 %type <number> is_exist;
 %type <number> is_in;
 %type <order_policy1> order_policy;
+%type <string> as_alias;
 
 // operator precedence
 %left PLUS MINUS
@@ -430,15 +432,14 @@ select:
 		;
 
 select_body:
-    begin_select select_expr select_exprs FROM ID rel_list inner_join_list where group_by having order_by
+    begin_select select_expr select_exprs FROM rel rel_list inner_join_list where group_by having order_by
 		{
 			CONTEXT->ssql->flag=SCF_SELECT;//"select";
 
-			selects_append_relation(&CONTEXT->selects[CUR_SEL], $5);
 			selects_append_conditions(&CONTEXT->selects[CUR_SEL], CONTEXT->conditions[CUR_SEL], CONTEXT->condition_length[CUR_SEL]);
 			selects_set_condition_ops(&CONTEXT->selects[CUR_SEL], CONTEXT->condition_ops[CUR_SEL], CONTEXT->condition_op_length[CUR_SEL]);
 			selects_append_joins(&CONTEXT->selects[CUR_SEL], CONTEXT->joins[CUR_SEL], CONTEXT->join_length[CUR_SEL]);
-			selects_append_exprs(&CONTEXT->selects[CUR_SEL], CONTEXT->exprs[CUR_SEL], CONTEXT->expr_length[CUR_SEL]);
+			selects_append_exprs(&CONTEXT->selects[CUR_SEL], CONTEXT->exprs[CUR_SEL], CONTEXT->expr_alias[CUR_SEL], CONTEXT->expr_length[CUR_SEL]);
 			selects_set_order_info(&CONTEXT->selects[CUR_SEL], CONTEXT->orders[CUR_SEL], CONTEXT->order_attrs[CUR_SEL], CONTEXT->order_attr_length[CUR_SEL]);
 			selects_set_group_by(&CONTEXT->selects[CUR_SEL], CONTEXT->group_bys[CUR_SEL], CONTEXT->group_by_length[CUR_SEL]);
 	}
@@ -511,10 +512,21 @@ select_expr:
 		relation_attr_init(&attr, NULL, "*");
 		CONTEXT->exprs[CUR_SEL][CONTEXT->expr_length[CUR_SEL]++] = new_attr_node(&attr);
 	}
-	| exp {
-		CONTEXT->exprs[CUR_SEL][CONTEXT->expr_length[CUR_SEL]++] = $1;
+	| exp as_alias {
+		CONTEXT->exprs[CUR_SEL][CONTEXT->expr_length[CUR_SEL]] = $1;
+		CONTEXT->expr_alias[CUR_SEL][CONTEXT->expr_length[CUR_SEL]] = $2;
+		CONTEXT->expr_length[CUR_SEL]++;
 	}
 	;
+
+as_alias:
+		/* empty */ {
+			$$ = NULL;
+		}
+		| AS ID {
+			$$ = strdup($2);
+		}
+		;
 
 select_exprs:
 	/* empty */
@@ -553,11 +565,15 @@ aggr_type:
 		| COUNT { CONTEXT->aggr_type[CUR_SEL] = COUNTS; }
 		;
 
+rel:
+		ID as_alias {
+			selects_append_relation(&CONTEXT->selects[CUR_SEL], $1, $2);
+		}
+		;
+
 rel_list:
     /* empty */
-    | COMMA ID rel_list {	
-			selects_append_relation(&CONTEXT->selects[CUR_SEL], $2);
-		}
+    | COMMA rel rel_list
     ;
 
 inner_join_list:

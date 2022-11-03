@@ -233,82 +233,29 @@ public:
       table_map_.insert({tbl->name(), tbl});
     }
   }
-  Table* GetDefaultTable() const
-  {
-    return default_table_;
-  }
-  const std::vector<Table *> &GetTables() const
-  {
-    return tables_;
-  }
-  Table *GetTable(const RelAttr &attr) const
-  {
-    const char *table_name = attr.relation_name;
-    if (table_name == nullptr) {
-      return default_table_;
-    }
-    auto iter = table_map_.find(table_name);
-    if (iter == table_map_.end()) {
-      return default_table_;
-    }
-    return iter->second;
-  }
-  Table *GetTable(const char *table_name) const
-  {
-    auto iter = table_map_.find(table_name);
-    if (iter == table_map_.end()) {
-      return nullptr;
-    }
-    return iter->second;
-  }
-  bool HasTable(const char *table_name) const
-  {
-    return table_map_.count(table_name);
-  }
-  size_t GetTableSize() const
-  {
-    return table_map_.size();
-  }
-  const FieldMeta *GetFieldMeta(const RelAttr &attr) const
-  {
-    return field_map_.at(attr_to_string(attr));
-  }
-
-  void AddTable(Table *tbl)
-  {
-    if (default_table_ == nullptr) {
-      default_table_ = tbl;
-    }
-    tables_.push_back(tbl);
-    table_map_[tbl->name()] = tbl;
-  }
-  void AddFieldMeta(const RelAttr &attr, const FieldMeta *meta)
-  {
-    field_map_[attr_to_string(attr)] = meta;
-  }
-  void ClearFieldMeta()
-  {
-    field_map_.clear();
-  }
+  Table* GetDefaultTable() const;
+  const std::vector<Table *> &GetTables() const;
+  Table *GetTable(const RelAttr &attr) const;
+  Table *GetTable(const char *table_name) const;
+  bool HasTable(const char *table_name) const;
+  size_t GetTableSize() const;
+  const FieldMeta *GetFieldMeta(const RelAttr &attr) const;
+  void AddTable(Table *tbl);
+  void SetAlias(const char *table_name, const char *alias);
+  void AddFieldMeta(const RelAttr &attr, const FieldMeta *meta);
+  void ClearFieldMeta();
 
 private:
   Table *default_table_{nullptr};
   std::vector<Table *> tables_;
+  // alias -> table name
+  std::unordered_map<std::string, std::string> alias_map_;
   // relation name -> table
   std::unordered_map<std::string, Table *> table_map_;
   // relation.field -> field meta
   std::unordered_map<std::string, const FieldMeta *> field_map_;
 
-  std::string attr_to_string(const RelAttr &attr) const
-  {
-    std::string ret = "";
-    if (attr.relation_name != nullptr) {
-      ret += attr.relation_name;
-      ret += ".";
-    }
-    ret += attr.attribute_name;
-    return ret;
-  }
+  std::string construct_field_key(const RelAttr &attr) const;
 };
 
 class ExprFactory {

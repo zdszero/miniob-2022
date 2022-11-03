@@ -16,6 +16,9 @@ See the Mulan PSL v2 for more details. */
 
 #include "sql/operator/operator.h"
 #include "rc.h"
+#include <unordered_map>
+
+using NameMap = std::unordered_map<std::string, std::string>;
 
 class ProjectOperator : public Operator
 {
@@ -31,7 +34,7 @@ public:
     }
   }
 
-  void add_projection(Expression *expr, bool is_multi_table);
+  void add_projection(Expression *expr, bool is_multi_table, const NameMap &table_alias);
   void set_order(const std::vector<OrderPolicy> &policies, const std::vector<Expression *> &order_exprs) {
     order_policies_ = policies;
     order_exprs_ = order_exprs;

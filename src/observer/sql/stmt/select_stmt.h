@@ -83,6 +83,10 @@ public:
   {
     return order_policies_;
   }
+  const std::unordered_map<std::string, std::string> &table_alias() const
+  {
+    return table_alias_;
+  }
   FilterUnit *having() const { return having_; }
   void Print() const;
 
@@ -96,5 +100,6 @@ private:
   Tables tables_;
   FilterStmt *filter_stmt_ = nullptr;
   FilterUnit *having_ = nullptr;
+  std::unordered_map<std::string, std::string> table_alias_;
 };
 

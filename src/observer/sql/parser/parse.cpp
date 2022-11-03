@@ -315,18 +315,21 @@ void attr_info_destroy(AttrInfo *attr_info)
 
 void selects_init(Selects *selects, ...);
 
-void selects_append_exprs(Selects *selects, ast* exprs[], size_t expr_num)
+void selects_append_exprs(Selects *selects, ast* exprs[], char *expr_alias[], size_t expr_num)
 {
   assert(expr_num <= MAX_NUM);
   for (size_t i = 0; i < expr_num; i++) {
     selects->exprs[i] = exprs[i];
+    selects->expr_alias[i] = expr_alias[i];
   }
   selects->expr_num = expr_num;
 }
 
-void selects_append_relation(Selects *selects, const char *relation_name)
+void selects_append_relation(Selects *selects, const char *relation_name, char *relation_alias)
 {
-  selects->relations[selects->relation_num++] = strdup(relation_name);
+  selects->relations[selects->relation_num] = strdup(relation_name);
+  selects->relation_alias[selects->relation_num] = relation_alias;
+  selects->relation_num++;
 }
 
 void selects_append_conditions(Selects *selects, Condition conditions[], size_t condition_num)
@@ -386,7 +389,9 @@ void selects_destroy(Selects *selects)
 {
   for (size_t i = 0; i < selects->relation_num; i++) {
     free(selects->relations[i]);
+    free(selects->relation_alias[i]);
     selects->relations[i] = NULL;
+    selects->relation_alias[i] = NULL;
   }
   selects->relation_num = 0;
 
@@ -402,6 +407,8 @@ void selects_destroy(Selects *selects)
 
   for (size_t i = 0; i < selects->expr_num; i++) {
     node_destroy(selects->exprs[i]);
+    free(selects->expr_alias[i]);
+    selects->expr_alias[i] = NULL;
   }
   selects->expr_num = 0;
   for (size_t i = 0; i < selects->order_attr_length; i++) {

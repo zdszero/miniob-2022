@@ -92,6 +92,95 @@ RC CompoundExpr::get_value(const Tuple &tuple, TupleCell &cell)
   return RC::SUCCESS;
 }
 
+Table *ExprContext::GetDefaultTable() const
+{
+  return default_table_;
+}
+const std::vector<Table *> &ExprContext::GetTables() const
+{
+  return tables_;
+}
+Table *ExprContext::GetTable(const RelAttr &attr) const
+{
+  if (attr.relation_name == nullptr) {
+    return default_table_;
+  }
+  std::string search_name;
+  if (alias_map_.count(attr.relation_name)) {
+    search_name = alias_map_.at(attr.relation_name);
+  } else {
+    search_name = attr.relation_name;
+  }
+  auto iter = table_map_.find(search_name);
+  if (iter == table_map_.end()) {
+    return default_table_;
+  }
+  return iter->second;
+}
+Table *ExprContext::GetTable(const char *table_name) const
+{
+  std::string search_name;
+  if (alias_map_.count(table_name)) {
+    search_name = alias_map_.at(table_name);
+  } else {
+    search_name = table_name;
+  }
+  auto iter = table_map_.find(table_name);
+  if (iter == table_map_.end()) {
+    return nullptr;
+  }
+  return iter->second;
+}
+bool ExprContext::HasTable(const char *table_name) const
+{
+  return alias_map_.count(table_name) || table_map_.count(table_name);
+}
+size_t ExprContext::GetTableSize() const
+{
+  return table_map_.size();
+}
+const FieldMeta *ExprContext::GetFieldMeta(const RelAttr &attr) const
+{
+  return field_map_.at(construct_field_key(attr));
+}
+void ExprContext::AddTable(Table *tbl)
+{
+  if (default_table_ == nullptr) {
+    default_table_ = tbl;
+  }
+  tables_.push_back(tbl);
+  table_map_[tbl->name()] = tbl;
+}
+void ExprContext::SetAlias(const char *table_name, const char *alias)
+{
+  alias_map_[alias] = table_name;
+}
+void ExprContext::AddFieldMeta(const RelAttr &attr, const FieldMeta *meta)
+{
+  field_map_[construct_field_key(attr)] = meta;
+}
+void ExprContext::ClearFieldMeta()
+{
+  field_map_.clear();
+}
+std::string ExprContext::construct_field_key(const RelAttr &attr) const
+{
+  // field key: origin_table.attr
+  std::string field_key = "";
+  if (attr.relation_name) {
+    std::string table_name;
+    if (alias_map_.count(attr.relation_name)) {
+      table_name = alias_map_.at(attr.relation_name);
+    } else {
+      table_name = attr.relation_name;
+    }
+    field_key += table_name;
+    field_key += ".";
+  }
+  field_key += attr.attribute_name;
+  return field_key;
+}
+
 Expression *ExprFactory::create(ast *t, const ExprContext &ctx)
 {
   if (t == nullptr) {
@@ -100,7 +189,9 @@ Expression *ExprFactory::create(ast *t, const ExprContext &ctx)
   assert(t->nodetype != NodeType::UNDEFINEDN);
   if (t->nodetype == NodeType::ATTRN) {
     assert(strcmp("*", t->attr.attribute_name) != 0);
-    return new FieldExpr(ctx.GetTable(t->attr), ctx.GetFieldMeta(t->attr));
+    Table *tbl = ctx.GetTable(t->attr);
+    const FieldMeta *field_meta = ctx.GetFieldMeta(t->attr);
+    return new FieldExpr(tbl, field_meta);
   } else if (t->nodetype == NodeType::AGGRN) {
     if (t->aggr.is_attr) {
       const FieldMeta *field_meta;
