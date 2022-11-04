@@ -41,5 +41,6 @@ SELECT t1.id,t2.u_name,t3.res FROM Select_tables_1 as t1,Select_tables_2 as t2,S
 SELECT t1.id,t2.u_name,t3.res FROM Select_tables_1 as t1,Select_tables_2 as t1,Select_tables_3 as t3;
 
 SELECT t1.id as col1,t2.u_name as col2,t3.res FROM Select_tables_1 as t1,Select_tables_2 as t2,Select_tables_3 as t3;
+SELECT t1.id as col1,t2.u_name as col2,t3.res FROM Select_tables_1 t1,Select_tables_2 as t2,Select_tables_3 t3;
 SELECT 1+2+3 as col1,t2.u_name as col2,t3.res FROM Select_tables_1 as t1,Select_tables_2 as t2,Select_tables_3 as t3;
 SELECT t1.id as col1, * FROM Select_tables_1 as t1,Select_tables_2 as t2,Select_tables_3 as t3;

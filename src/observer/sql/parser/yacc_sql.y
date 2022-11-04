@@ -523,6 +523,10 @@ as_alias:
 		/* empty */ {
 			$$ = NULL;
 		}
+		|
+		ID {
+			$$ = strdup($1);
+		}
 		| AS ID {
 			$$ = strdup($2);
 		}
