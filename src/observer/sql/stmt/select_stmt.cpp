@@ -128,43 +128,49 @@ static RC check_selects(Selects &select_sql, size_t &attr_cnt, size_t &aggr_cnt,
   return RC::SUCCESS;
 }
 
-static void wildcard_fields(Table *table, std::vector<Expression *> &exprs)
+static void wildcard_fields(Table *table, std::vector<Expression *> &exprs, std::vector<const char *> &field_alias)
 {
   const TableMeta &table_meta = table->table_meta();
   const int field_num = table_meta.field_num();
   for (int i = table_meta.sys_field_num(); i < field_num; i++) {
     exprs.push_back(new FieldExpr(table, table_meta.field(i)));
+    field_alias.push_back(nullptr);
   }
 }
 
-static void collect_attr_expr(ast *t, const ExprContext &ctx, std::vector<Expression *> &exprs)
+static void collect_attr_expr(ast *t, const ExprContext &ctx, std::vector<Expression *> &exprs, std::vector<const char *> &field_alias)
 {
   assert(t->nodetype == NodeType::ATTRN);
   const RelAttr &attr = t->attr;
   if (strcmp(attr.attribute_name, "*") == 0) {
     if (common::is_blank(attr.relation_name) || strcmp(attr.relation_name, "*") == 0){
       for (Table *t : ctx.GetTables()) {
-        wildcard_fields(t, exprs);
+        wildcard_fields(t, exprs, field_alias);
       }
     } else {
       Table *t = ctx.GetTable(attr);
-      wildcard_fields(t, exprs);
+      wildcard_fields(t, exprs, field_alias);
     }
   } else {
     exprs.push_back(ExprFactory::create(t, ctx));
   }
 }
 
-static void collect_exprs(Selects &select_sql, const ExprContext &ctx, std::vector<Expression *> &exprs)
+static void collect_exprs(Selects &select_sql, const ExprContext &ctx, std::vector<Expression *> &exprs,
+  std::vector<const char *> &field_alias)
 {
   for (size_t i = 0; i < select_sql.expr_num; i++) {
     ast *t = select_sql.exprs[i];
     // std::cout << ast_to_string(t) << std::endl;
     assert(t->nodetype != NodeType::UNDEFINEDN);
     if (t->nodetype == NodeType::ATTRN) {
-      collect_attr_expr(t, ctx, exprs);
+      collect_attr_expr(t, ctx, exprs, field_alias);
+      if (strcmp(t->attr.attribute_name, "*") != 0) {
+        field_alias.push_back(select_sql.expr_alias[i]);
+      }
     } else {
       exprs.push_back(ExprFactory::create(t, ctx));
+      field_alias.push_back(select_sql.expr_alias[i]);
     }
   }
 }
@@ -304,7 +310,9 @@ RC SelectStmt::create_with_context(Db *db, Selects &select_sql, Stmt *&stmt, Exp
 
   // collect exprs
   std::vector<Expression *> exprs;
-  collect_exprs(select_sql, select_ctx, exprs);
+  std::vector<const char *> field_alias;
+  collect_exprs(select_sql, select_ctx, exprs, field_alias);
+  assert(exprs.size() == field_alias.size());
 
   // create filter statement in `where` statement
   FilterStmt *filter_stmt = nullptr;
@@ -371,6 +379,7 @@ RC SelectStmt::create_with_context(Db *db, Selects &select_sql, Stmt *&stmt, Exp
   select_stmt->group_bys_ = group_bys;
   select_stmt->having_ = having;
   select_stmt->table_alias_ = table_alias;
+  select_stmt->field_alias_ = field_alias;
   stmt = select_stmt;
 
   select_stmt->Print();

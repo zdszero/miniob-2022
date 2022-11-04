@@ -34,7 +34,7 @@ public:
     }
   }
 
-  void add_projection(Expression *expr, bool is_multi_table, const NameMap &table_alias);
+  void add_projection(Expression *expr, bool is_multi_table, const NameMap &table_alias, const char *alias);
   void set_order(const std::vector<OrderPolicy> &policies, const std::vector<Expression *> &order_exprs) {
     order_policies_ = policies;
     order_exprs_ = order_exprs;

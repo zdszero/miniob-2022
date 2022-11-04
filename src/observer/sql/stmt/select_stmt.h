@@ -87,6 +87,10 @@ public:
   {
     return table_alias_;
   }
+  const std::vector<const char *> &field_alias() const
+  {
+    return field_alias_;
+  }
   FilterUnit *having() const { return having_; }
   void Print() const;
 
@@ -101,5 +105,6 @@ private:
   FilterStmt *filter_stmt_ = nullptr;
   FilterUnit *having_ = nullptr;
   std::unordered_map<std::string, std::string> table_alias_;
+  std::vector<const char *> field_alias_;
 };
 

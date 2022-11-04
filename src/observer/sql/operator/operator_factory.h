@@ -56,8 +56,10 @@ private:
       printf("use project operator\n");
       auto project_oper = new ProjectOperator();
       project_oper->add_child(pred_oper);
+      size_t idx = 0;
       for (Expression *expr : select_stmt->exprs()) {
-        project_oper->add_projection(expr, select_stmt->tables().size() > 1, select_stmt->table_alias());
+        project_oper->add_projection(expr, select_stmt->tables().size() > 1, select_stmt->table_alias(), select_stmt->field_alias()[idx]);
+        idx++;
       }
       return project_oper;
     } else {

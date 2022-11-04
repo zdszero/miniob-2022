@@ -73,7 +73,7 @@ static RC fetch_inner_value(SelectStmt *select_stmt, Tuple *outer_tuple, TupleCe
   if (select_stmt->select_attributes()) {
     ProjectOperator *proj_oper = new ProjectOperator();
     Expression *expr = select_stmt->exprs()[0];
-    proj_oper->add_projection(expr, true, select_stmt->table_alias());
+    proj_oper->add_projection(expr, true, select_stmt->table_alias(), nullptr);
     pred_oper->add_child(table_scan_oper);
     proj_oper->add_child(pred_oper);
     DEFER([proj_oper](){ delete proj_oper; });

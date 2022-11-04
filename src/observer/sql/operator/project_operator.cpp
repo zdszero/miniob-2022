@@ -121,16 +121,15 @@ Tuple *ProjectOperator::current_tuple()
   return &tuple_;
 }
 
-void ProjectOperator::add_projection(Expression *expr, bool is_multi_table, const NameMap &table_alias)
+void ProjectOperator::add_projection(Expression *expr, bool is_multi_table, const NameMap &table_alias, const char *alias)
 {
-  // 对单表来说，展示的(alias) 字段总是字段名称，
-  // 对多表查询来说，展示的alias 需要带表名字
+  TupleCellSpec *spec = nullptr;
+  std::string show_name;
   if (expr->type() == ExprType::FIELD) {
     FieldExpr *field_expr = static_cast<FieldExpr *>(expr);
     Field &field = field_expr->field();
     const Table *table = field.table();
     const FieldMeta *field_meta = field.meta();
-    std::string show_name;
     if (is_multi_table) {
       show_name = "";
       if (table_alias.count(table->name())) {
@@ -142,20 +141,23 @@ void ProjectOperator::add_projection(Expression *expr, bool is_multi_table, cons
     } else {
       show_name = std::string(field_meta->name());
     }
-    TupleCellSpec *spec = new TupleCellSpec(expr);
+    spec = new TupleCellSpec(expr);
     spec->set_alias(show_name);
-    tuple_.add_cell_spec(spec);
   } else if (expr->type() == ExprType::VALUE) {
-    TupleCellSpec *spec = new TupleCellSpec(expr);
+    spec = new TupleCellSpec(expr);
     ValueExpr *value_expr = static_cast<ValueExpr *>(expr);
-    tuple_.add_cell_spec(spec);
-    spec->set_alias(value_expr->to_string());
+    show_name = value_expr->to_string();
   } else if (expr->type() == ExprType::COMPOUND) {
     CompoundExpr *compound_expr = static_cast<CompoundExpr *>(expr);
-    TupleCellSpec *spec = new TupleCellSpec(expr);
-    spec->set_alias(compound_expr->get_show_name());
-    tuple_.add_cell_spec(spec);
+    spec = new TupleCellSpec(expr);
+    show_name = compound_expr->get_show_name();
   }
+  if (alias) {
+    spec->set_alias(std::string(alias));
+  } else {
+    spec->set_alias(show_name);
+  }
+  tuple_.add_cell_spec(spec);
 }
 
 RC ProjectOperator::tuple_cell_spec_at(int index, const TupleCellSpec *&spec) const
