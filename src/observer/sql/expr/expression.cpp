@@ -135,6 +135,10 @@ bool ExprContext::HasTable(const char *table_name) const
 {
   return alias_map_.count(table_name) || table_map_.count(table_name);
 }
+const std::unordered_map<std::string, std::string> &ExprContext::GetAlias() const
+{
+  return alias_map_;
+}
 size_t ExprContext::GetTableSize() const
 {
   return table_map_.size();
@@ -179,6 +183,12 @@ std::string ExprContext::construct_field_key(const RelAttr &attr) const
   }
   field_key += attr.attribute_name;
   return field_key;
+}
+void ExprContext::SetCorrelation(const ExprContext &ctx)
+{
+  this->tables_ = ctx.tables_;
+  this->table_map_ = ctx.table_map_;
+  this->alias_map_ = ctx.alias_map_;
 }
 
 Expression *ExprFactory::create(ast *t, const ExprContext &ctx)

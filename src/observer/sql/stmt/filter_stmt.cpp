@@ -173,9 +173,7 @@ RC FilterStmt::create_filter_unit_compare(Db *db, ExprContext &ctx, Condition &c
       delete left_select;
     } else {
       ExprContext correlated_ctx;
-      for (Table *tbl : ctx.GetTables()) {
-        correlated_ctx.AddTable(tbl);
-      }
+      correlated_ctx.SetCorrelation(ctx);
       rc = SelectStmt::create_with_context(db, *condition.left_select, left_select, correlated_ctx);
       if (rc != RC::SUCCESS) {
         return rc;
@@ -202,9 +200,7 @@ RC FilterStmt::create_filter_unit_compare(Db *db, ExprContext &ctx, Condition &c
       delete right_select;
     } else {
       ExprContext correlated_ctx;
-      for (Table *tbl : ctx.GetTables()) {
-        correlated_ctx.AddTable(tbl);
-      }
+      correlated_ctx.SetCorrelation(ctx);
       rc = SelectStmt::create_with_context(db, *condition.right_select, right_select, correlated_ctx);
       if (rc != RC::SUCCESS) {
         return rc;
@@ -261,9 +257,7 @@ RC FilterStmt::create_filter_unit_exists(Db *db, ExprContext &ctx, Condition &co
     filter_unit->set_exists(exists);
   } else {
     ExprContext correlated_ctx;
-    for (Table *tbl : ctx.GetTables()) {
-      correlated_ctx.AddTable(tbl);
-    }
+    correlated_ctx.SetCorrelation(ctx);
     rc = SelectStmt::create_with_context(db, *condition.left_select, sub_select_stmt, correlated_ctx);
     if (rc != RC::SUCCESS) {
       LOG_WARN("not correlated sub query, syntax error");
@@ -322,9 +316,7 @@ RC FilterStmt::create_filter_unit_in(Db *db, ExprContext &ctx, Condition &condit
     } else {
       // correlated subquery
       ExprContext correlated_ctx;
-      for (Table *tbl : ctx.GetTables()) {
-        correlated_ctx.AddTable(tbl);
-      }
+      correlated_ctx.SetCorrelation(ctx);
       rc = SelectStmt::create_with_context(db, *condition.left_select, sub_select_stmt, correlated_ctx);
       if (rc != RC::SUCCESS) {
         LOG_WARN("not correlated sub query, syntax error");

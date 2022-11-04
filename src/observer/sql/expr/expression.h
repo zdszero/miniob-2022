@@ -238,12 +238,14 @@ public:
   Table *GetTable(const RelAttr &attr) const;
   Table *GetTable(const char *table_name) const;
   bool HasTable(const char *table_name) const;
+  const std::unordered_map<std::string, std::string> &GetAlias() const;
   size_t GetTableSize() const;
   const FieldMeta *GetFieldMeta(const RelAttr &attr) const;
   void AddTable(Table *tbl);
   void SetAlias(const char *table_name, const char *alias);
   void AddFieldMeta(const RelAttr &attr, const FieldMeta *meta);
   void ClearFieldMeta();
+  void SetCorrelation(const ExprContext &ctx);
 
 private:
   Table *default_table_{nullptr};
