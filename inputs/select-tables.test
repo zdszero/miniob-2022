@@ -44,3 +44,5 @@ SELECT t1.id as col1,t2.u_name as col2,t3.res FROM Select_tables_1 as t1,Select_
 SELECT t1.id as col1,t2.u_name as col2,t3.res FROM Select_tables_1 t1,Select_tables_2 as t2,Select_tables_3 t3;
 SELECT 1+2+3 as col1,t2.u_name as col2,t3.res FROM Select_tables_1 as t1,Select_tables_2 as t2,Select_tables_3 as t3;
 SELECT t1.id as col1, * FROM Select_tables_1 as t1,Select_tables_2 as t2,Select_tables_3 as t3;
+
+select t1.id as num, t1.age as age, t1.u_name, t2.* from Select_tables_1 t1, Select_tables_2 t2 where t1.id < t2.id;

@@ -512,6 +512,11 @@ select_expr:
 		relation_attr_init(&attr, NULL, "*");
 		CONTEXT->exprs[CUR_SEL][CONTEXT->expr_length[CUR_SEL]++] = new_attr_node(&attr);
 	}
+	| ID DOT STAR {
+		RelAttr attr;
+		relation_attr_init(&attr, $1, "*");
+		CONTEXT->exprs[CUR_SEL][CONTEXT->expr_length[CUR_SEL]++] = new_attr_node(&attr);
+	}
 	| exp as_alias {
 		CONTEXT->exprs[CUR_SEL][CONTEXT->expr_length[CUR_SEL]] = $1;
 		CONTEXT->expr_alias[CUR_SEL][CONTEXT->expr_length[CUR_SEL]] = $2;
