@@ -135,7 +135,9 @@ RC UpdateOperator::update_data(char *data, const FieldMeta *meta, Value &val) {
         copy_len = meta->len();
       }
       strncpy(data + meta->offset(), (char *)val.data, copy_len);
-      *(static_cast<char *>(data + meta->offset() + copy_len)) = '\0';
+      if (copy_len < meta->len()) {
+        *(static_cast<char *>(data + meta->offset() + copy_len)) = '\0';
+      }
     } else {
       memcpy(data + meta->offset(), val.data, meta->len());
     }
