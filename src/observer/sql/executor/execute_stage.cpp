@@ -12,9 +12,6 @@ See the Mulan PSL v2 for more details. */
 // Created by Meiyi & Longda on 2021/4/13.
 //
 
-#include <string>
-#include <sstream>
-
 #include "execute_stage.h"
 
 #include "common/io/io.h"
@@ -264,12 +261,19 @@ void print_aggregate_header(std::ostream &os, SelectStmt *select_stmt)
   auto &aggrs = select_stmt->exprs();
   bool is_multi_table = (select_stmt->tables().size() > 1);
   bool first = true;
+  auto &field_alias = select_stmt->field_alias();
+  size_t i = 0;
   for (Expression *expr : aggrs) {
     if (!first) {
       os << " | ";
     }
-    os << expr_to_string(expr, is_multi_table);
+    if (field_alias[i] == nullptr) {
+      os << expr_to_string(expr, is_multi_table);
+    } else {
+      os << field_alias[i];
+    }
     first = false;
+    i++;
   }
   os << std::endl;
 }
