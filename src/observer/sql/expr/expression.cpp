@@ -141,13 +141,9 @@ RC FuncExpr::get_value(const Tuple &tuple, TupleCell &cell)
     } else {
       assert(false);
     }
-    tm times;
     const char *format = right_cell.data();
-    init_tm(date, &times);
-    char buf[128];
-    strftime(buf, 128, format, &times);
     value_destroy(&val_);
-    value_init_string(&val_, buf);
+    value_init_string(&val_, format_date(date, format).c_str());
   }
   cell = TupleCell(val_);
   return RC::SUCCESS;

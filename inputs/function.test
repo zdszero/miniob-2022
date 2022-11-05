@@ -1,7 +1,11 @@
 create table func_tbl(id int, f float, s char(10), d date);
 insert into func_tbl values(1, 1.234, 'gaoxing', '2012-01-23');
-insert into func_tbl values(2, 4.2, 'nice', '1999-08-23');
-insert into func_tbl values(3, 7, 'nihao', '2012-01-23');
+insert into func_tbl values(2, 4.2, 'nice', '1999-08-25');
+insert into func_tbl values(3, 7, 'nihao', '2008-7-12');
+insert into func_tbl values(4, 7, 'nihao', '2004-8-1');
+insert into func_tbl values(5, 4.234, 'fjdk', '2013-2-27');
+insert into func_tbl values(6, 53.2, 'hyccc', '2019-12-21');
+insert into func_tbl values(7, 23.32, 'nhqqq', '2006-9-29');
 
 select length(s) from func_tbl;
 select length(s) len1 from func_tbl;
@@ -22,12 +26,7 @@ insert into function_table values(5, 'WATERMELON', 1000.32);
 create table function_table_2(id int, name char(20), score float);
 insert into function_table_2 values(2, 'MANGO', 38);
 select t1.id, t1.name, round(t1.score) as s1, t2.id, t2.name, round(t2.score) as s2 from function_table t1, function_table_2 t2 where t1.id > t2.id and round(t1.score) > round(t2.score);
-select t1.id, t1.name, round(t1.score) as s1, t2.id, t2.name, round(t2.score) as s2 from function_table t1, function_table_2 t2 where t1.id > t2.id;
--3 | CHERRY | 1919 | 2 | MANGO | 38
--4 | FIG | 23333 | 2 | MANGO | 38
--5 | WATERMELON | 1000 | 2 | MANGO | 38
-T1.ID | T1.NAME | S1 | T2.ID | T2.NAME | S2
 
 select date_format('2019-9-17', '%y/%m/%d') as date_type;
 select d, date_format(d, '%y/%m/%d') as date_type from func_tbl;
-select id, date_format(d, '%Y.%m.%d') as DATE_TYPE from func_tbl where d > '2000-1-2';
+select d, date_format(d, '%D,%M,%Y') as date_type from func_tbl;
