@@ -71,6 +71,10 @@ private:
 
 RC ProjectOperator::open()
 {
+  if (!has_table_) {
+    return RC::SUCCESS;
+  }
+
   if (children_.size() != 1) {
     LOG_WARN("project operator must has 1 child");
     return RC::INTERNAL;
@@ -97,6 +101,13 @@ RC ProjectOperator::open()
 
 RC ProjectOperator::next()
 {
+  if (!has_table_) {
+    if (!is_first_) {
+      return RC::RECORD_EOF;
+    }
+    is_first_ = false;
+    return RC::SUCCESS;
+  }
   if (order_exprs_.size() == 0) {
     return children_[0]->next();
   } else {
@@ -110,11 +121,18 @@ RC ProjectOperator::next()
 
 RC ProjectOperator::close()
 {
+  if (!has_table_) {
+    return RC::SUCCESS;
+  }
   children_[0]->close();
   return RC::SUCCESS;
 }
 Tuple *ProjectOperator::current_tuple()
 {
+  if (!has_table_) {
+    tuple_.set_tuple(&unused_tuple_);
+    return &tuple_;
+  }
   if (order_exprs_.size() == 0) {
     tuple_.set_tuple(children_[0]->current_tuple());
   } else {

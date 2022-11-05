@@ -39,15 +39,21 @@ public:
 private:
   static Operator *create_select_operator(SelectStmt *select_stmt, Trx *trx)
   {
-    Operator *scan_oper;
+    Operator *scan_oper = nullptr;
     // Operator *scan_oper = try_to_create_index_scan_operator(select_stmt->filter_stmt());
     // if (nullptr == scan_oper) {
     //   scan_oper = new TableScanOperator(table);
     // }
-    if (select_stmt->join_stmts().empty()) {
-      scan_oper = new NestedScanOperator(select_stmt->tables());
-    } else {
-      scan_oper = new HashJoinOperator(select_stmt->tables()[0], select_stmt->join_stmts());
+    bool has_table = true;
+    if (select_stmt->tables().size() == 0) {
+      has_table = false;
+    }
+    if (has_table) {
+      if (select_stmt->join_stmts().empty()) {
+        scan_oper = new NestedScanOperator(select_stmt->tables());
+      } else {
+        scan_oper = new HashJoinOperator(select_stmt->tables()[0], select_stmt->join_stmts());
+      }
     }
 
     auto pred_oper = new PredicateOperator(select_stmt->filter_stmt());
@@ -55,7 +61,11 @@ private:
     if (select_stmt->select_attributes()) {
       printf("use project operator\n");
       auto project_oper = new ProjectOperator();
-      project_oper->add_child(pred_oper);
+      if (has_table) {
+        project_oper->add_child(pred_oper);
+      } else {
+        project_oper->set_notable();
+      }
       size_t idx = 0;
       for (Expression *expr : select_stmt->exprs()) {
         project_oper->add_projection(expr, select_stmt->tables().size() > 1, select_stmt->table_alias(), select_stmt->field_alias()[idx]);

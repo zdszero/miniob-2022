@@ -433,7 +433,12 @@ select:
 		;
 
 select_body:
-    begin_select select_expr select_exprs FROM rel rel_list inner_join_list where group_by having order_by
+  begin_select select_expr select_exprs {
+		CONTEXT->ssql->flag=SCF_SELECT;//"select";
+
+		selects_append_exprs(&CONTEXT->selects[CUR_SEL], CONTEXT->exprs[CUR_SEL], CONTEXT->expr_alias[CUR_SEL], CONTEXT->expr_length[CUR_SEL]);
+	}
+  | begin_select select_expr select_exprs FROM rel rel_list inner_join_list where group_by having order_by
 		{
 			CONTEXT->ssql->flag=SCF_SELECT;//"select";
 

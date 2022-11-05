@@ -275,7 +275,22 @@ RC SelectStmt::create_with_context(Db *db, Selects &select_sql, Stmt *&stmt, Exp
   if (rc != RC::SUCCESS) {
     return rc;
   }
-  assert(select_ctx.GetTableSize() > 0);
+  // assert(select_ctx.GetTableSize() > 0);
+  if (select_ctx.GetTableSize() == 0) {
+    std::vector<Expression *> exprs;
+    std::vector<const char *> field_alias;
+    collect_exprs(select_sql, select_ctx, exprs, field_alias);
+    assert(exprs.size() == field_alias.size());
+
+    SelectStmt *select_stmt = new SelectStmt();
+    select_stmt->exprs_.swap(exprs);
+    select_stmt->table_alias_ = table_alias;
+    select_stmt->field_alias_ = field_alias;
+    stmt = select_stmt;
+
+    select_stmt->Print();
+    return RC::SUCCESS;
+  }
 
   // check all join conditions, create join stmts
   if (select_sql.join_num > 0 && select_ctx.GetTableSize() > 1) {
