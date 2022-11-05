@@ -110,13 +110,20 @@ RC FuncExpr::get_value(const Tuple &tuple, TupleCell &cell)
   if (functype_ == LENGTHF) {
     TupleCell left_cell;
     left_->get_value(tuple, left_cell);
+    if (left_cell.attr_type() != CHARS) {
+      LOG_WARN("length() can only be used on chars");
+      return RC::MISMATCH;
+    }
     size_t length = strlen(left_cell.data());
     value_destroy(&val_);
     value_init_integer(&val_, length);
   } else if (functype_ == ROUNDF) {
     TupleCell left_cell, right_cell;
     left_->get_value(tuple, left_cell);
-    assert(left_cell.attr_type() == FLOATS);
+    if (left_cell.attr_type() != FLOATS) {
+      LOG_WARN("round() can only be used on floats");
+      return RC::MISMATCH;
+    }
     float v = *(float *)(left_cell.data());
     int n;
     if (right_) {
@@ -135,11 +142,15 @@ RC FuncExpr::get_value(const Tuple &tuple, TupleCell &cell)
     right_->get_value(tuple, right_cell);
     int32_t date;
     if (left_cell.attr_type() == CHARS) {
-      string_to_date(left_cell.data(), date);
+      RC rc = string_to_date(left_cell.data(), date);
+      if (rc != RC::SUCCESS) {
+        return rc;
+      }
     } else if (left_cell.attr_type() == DATES) {
       date = *(int32_t *)left_cell.data();
     } else {
-      assert(false);
+      LOG_WARN("date_format() can only be used on date");
+      return RC::MISMATCH;
     }
     const char *format = right_cell.data();
     value_destroy(&val_);

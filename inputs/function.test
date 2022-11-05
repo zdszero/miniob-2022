@@ -7,12 +7,14 @@ insert into func_tbl values(5, 4.234, 'fjdk', '2013-2-27');
 insert into func_tbl values(6, 53.2, 'hyccc', '2019-12-21');
 insert into func_tbl values(7, 23.32, 'nhqqq', '2006-9-29');
 
+# length test
 select length(s) from func_tbl;
 select length(s) len1 from func_tbl;
 select length('this is a string') len1, length('another string') len2;
 select id, length(s) len1 from func_tbl where length(s) > 4;
 select length('123345'), length(s) from func_tbl;
 
+# round test
 select round(f) from func_tbl;
 select round(f, 3) from func_tbl;
 select round(235.415, 2) as round_value;
@@ -27,7 +29,14 @@ create table function_table_2(id int, name char(20), score float);
 insert into function_table_2 values(2, 'MANGO', 38);
 select t1.id, t1.name, round(t1.score) as s1, t2.id, t2.name, round(t2.score) as s2 from function_table t1, function_table_2 t2 where t1.id > t2.id and round(t1.score) > round(t2.score);
 
+# date_format test
 select date_format('2019-9-17', '%y/%m/%d') as date_type;
 select d, date_format(d, '%y/%m/%d') as date_type from func_tbl;
 select d, date_format(d, '%D,%M,%Y') as date_type from func_tbl;
 select d, date_format(d, '%z/%n/%d') as date_type from func_tbl;
+
+# error
+select id, length(id) from func_tbl;
+select id, round(id) from func_tbl;
+select id, date_format(id, '%Y') from func_tbl;
+select date_format('abcdefg', '%Y') from func_tbl;

@@ -279,7 +279,7 @@ void print_aggregate_header(std::ostream &os, SelectStmt *select_stmt)
 }
 
 // ProjectTuple
-void tuple_to_string(std::ostream &os, const Tuple &tuple)
+RC tuple_to_string(std::ostream &os, const Tuple &tuple)
 {
   TupleCell cell;
   RC rc = RC::SUCCESS;
@@ -288,7 +288,7 @@ void tuple_to_string(std::ostream &os, const Tuple &tuple)
     rc = tuple.cell_at(i, cell);
     if (rc != RC::SUCCESS) {
       LOG_WARN("failed to fetch field of cell. index=%d, rc=%s", i, strrc(rc));
-      break;
+      return rc;
     }
 
     if (!first_field) {
@@ -298,6 +298,7 @@ void tuple_to_string(std::ostream &os, const Tuple &tuple)
     }
     cell.to_string(os);
   }
+  return RC::SUCCESS;
 }
 
 IndexScanOperator *try_to_create_index_scan_operator(FilterStmt *filter_stmt)
@@ -449,7 +450,10 @@ RC ExecuteStage::do_select(SQLStageEvent *sql_event)
         LOG_WARN("failed to get current record. rc=%s", strrc(rc));
         break;
       }
-      tuple_to_string(ss, *tuple);
+      rc = tuple_to_string(ss, *tuple);
+      if (rc != RC::SUCCESS) {
+        break;
+      }
       ss << std::endl;
     }
     if (rc != RC::RECORD_EOF) {
@@ -459,7 +463,7 @@ RC ExecuteStage::do_select(SQLStageEvent *sql_event)
       rc = project_oper->close();
     }
 
-    if (subquery_rc != RC::SUCCESS) {
+    if (subquery_rc != RC::SUCCESS || rc != RC::SUCCESS) {
       session_event->set_response("FAILURE\n");
     } else {
       session_event->set_response(ss.str());
