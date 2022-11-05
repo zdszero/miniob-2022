@@ -97,6 +97,9 @@ static RC check_func_node(ast *t, ExprContext &ctx, size_t &attr_cnt, size_t &ag
       return RC::SQL_SYNTAX;
     }
   } else {
+    if (functype == ROUNDF && t->func.right == nullptr) {
+      return RC::SUCCESS;
+    }
     if (t->func.right->nodetype != NodeType::VALN) {
       LOG_WARN("round() and date_format() can only have value as 2nd child");
       return RC::SQL_SYNTAX;

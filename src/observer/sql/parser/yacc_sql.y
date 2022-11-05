@@ -534,6 +534,9 @@ func:
 	LENGTH LBRACE exp RBRACE {
 		$$ = new_func_node(LENGTHF, $3, NULL);
 	}
+	| ROUND LBRACE exp RBRACE {
+		$$ = new_func_node(ROUNDF, $3, NULL);
+	}
 	| ROUND LBRACE exp COMMA exp RBRACE {
 		$$ = new_func_node(ROUNDF, $3, $5);
 	}

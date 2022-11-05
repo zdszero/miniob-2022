@@ -17,6 +17,7 @@ See the Mulan PSL v2 for more details. */
 #include "sql/expr/tuple.h"
 #include "util/ast_util.h"
 #include "util/date.h"
+#include <cmath>
 
 RC FieldExpr::get_value(const Tuple &tuple, TupleCell &cell)
 {
@@ -92,6 +93,18 @@ RC CompoundExpr::get_value(const Tuple &tuple, TupleCell &cell)
   return RC::SUCCESS;
 }
 
+static int pow10(int n)
+{
+  if (n == 0) {
+    return 1;
+  }
+  if (n % 2 == 1) {
+    return 10 * pow10(n-1);
+  }
+  int half = pow10(n / 2);
+  return half * half;
+}
+
 RC FuncExpr::get_value(const Tuple &tuple, TupleCell &cell)
 {
   if (functype_ == LENGTHF) {
@@ -103,14 +116,23 @@ RC FuncExpr::get_value(const Tuple &tuple, TupleCell &cell)
   } else if (functype_ == ROUNDF) {
     TupleCell left_cell, right_cell;
     left_->get_value(tuple, left_cell);
-    right_->get_value(tuple, right_cell);
     assert(left_cell.attr_type() == FLOATS);
-    assert(right_cell.attr_type() == INTS);
     float v = *(float *)(left_cell.data());
-    int roundto = *(int *)(right_cell.data());
+    int n;
+    if (right_) {
+      right_->get_value(tuple, right_cell);
+      n = *(int *)(right_cell.data());
+    } else {
+      n = 0;
+    }
+    float pow = pow10(n);
+    v = std::round(v * pow) / pow;
+    if (v == static_cast<int>(v)) {
+      n = 0;
+    }
     char fmt[128];
     char buf[128];
-    sprintf(fmt, "%%.%df", roundto);
+    sprintf(fmt, "%%.%df", n);
     sprintf(buf, fmt, v);
     value_destroy(&val_);
     value_init_string(&val_, buf);

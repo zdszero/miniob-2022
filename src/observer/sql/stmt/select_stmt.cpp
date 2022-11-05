@@ -319,7 +319,8 @@ RC SelectStmt::create_with_context(Db *db, Selects &select_sql, Stmt *&stmt, Exp
   if (aggr_cnt > 0) {
     select_attributes = false;
   } else {
-    assert(attr_cnt > 0);
+    // assert(attr_cnt > 0);
+    // may be no attribute
     select_attributes = true;
   }
 

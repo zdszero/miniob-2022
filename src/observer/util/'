@@ -198,10 +198,10 @@ std::string expr_to_string(Expression *expr, bool is_multi_table)
       ss << func_to_string(functype) << "(" << expr_to_string(func_expr->left(), is_multi_table) << ")";
     } else {
       ss << func_to_string(functype) << "("
-         << expr_to_string(func_expr->left(),is_multi_table);
-      if (func_expr->right()) {
+        << expr_to_string(func_expr->left(),is_multi_table);
+      {
         ss << ","
-           << expr_to_string(func_expr->right(), is_multi_table);
+           << expr_to_string(func_expr->right(), is_multi_table)
       }
       ss << ")";
     }
