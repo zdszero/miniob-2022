@@ -528,11 +528,6 @@ select_expr:
 		CONTEXT->expr_alias[CUR_SEL][CONTEXT->expr_length[CUR_SEL]] = $2;
 		CONTEXT->expr_length[CUR_SEL]++;
 	}
-	| func as_alias {
-		CONTEXT->exprs[CUR_SEL][CONTEXT->expr_length[CUR_SEL]] = $1;
-		CONTEXT->expr_alias[CUR_SEL][CONTEXT->expr_length[CUR_SEL]] = $2;
-		CONTEXT->expr_length[CUR_SEL]++;
-	}
 	;
 
 func:
@@ -815,6 +810,9 @@ exp :
 			$$ = new_attr_node(&attr);
 		}
 		| aggr_func {
+			$$ = $1;
+		}
+		| func {
 			$$ = $1;
 		}
 		;
