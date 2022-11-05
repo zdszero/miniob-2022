@@ -17,6 +17,7 @@ See the Mulan PSL v2 for more details. */
 #include "sql/parser/parse_defs.h"
 #include "storage/record/record.h"
 #include "storage/common/table.h"
+#include "util/util.h"
 #include <algorithm>
 
 class TupleComparator {
@@ -151,6 +152,9 @@ void ProjectOperator::add_projection(Expression *expr, bool is_multi_table, cons
     CompoundExpr *compound_expr = static_cast<CompoundExpr *>(expr);
     spec = new TupleCellSpec(expr);
     show_name = compound_expr->get_show_name();
+  } else if (expr->type() == ExprType::FUNC) {
+    spec = new TupleCellSpec(expr);
+    show_name = expr_to_string(expr, is_multi_table);
   }
   if (alias) {
     spec->set_alias(std::string(alias));

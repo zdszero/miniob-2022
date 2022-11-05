@@ -99,6 +99,9 @@ QUOTE            [\'\"]
 [Aa][Ss][Cc]                                         RETURN_TOKEN(ASC);
 [Gg][Rr][Oo][Uu][Pp]                                 RETURN_TOKEN(GROUP);
 [Hh][Aa][Vv][Ii][Nn][Gg]                             RETURN_TOKEN(HAVING);
+[Ll][Ee][Nn][Gg][Tt][Hh]                             RETURN_TOKEN(LENGTH);
+[Rr][Oo][Uu][Nn][Dd]                                 RETURN_TOKEN(ROUND);
+[Dd][Aa][Tt][Ee]_[Ff][Oo][Rr][Mm][Aa][Tt]            RETURN_TOKEN(DATE_FORMAT);
 {ID}                                                 yylval->string=strdup(yytext); RETURN_TOKEN(ID);
 "("                                                  RETURN_TOKEN(LBRACE);
 ")"                                                  RETURN_TOKEN(RBRACE);

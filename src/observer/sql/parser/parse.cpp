@@ -67,6 +67,18 @@ ast *new_op_node(MathOp mathop, ast *l, ast *r)
   return n;
 }
 
+ast *new_func_node(FuncType functype, ast *l, ast *r)
+{
+  ast *n = (ast *)malloc(sizeof(ast));
+  n->nodetype = FUNCN;
+  n->func.functype = functype;
+  n->func.left = l;
+  n->func.right = r;
+  n->l_brace = 0;
+  n->r_brace = 0;
+  return n;
+}
+
 void node_destroy(ast *n)
 {
   if (n == nullptr) {
@@ -85,6 +97,10 @@ void node_destroy(ast *n)
       break;
     case AGGRN:
       aggregate_destroy(&n->aggr);
+      break;
+    case FUNCN:
+      node_destroy(n->func.left);
+      node_destroy(n->func.right);
       break;
     default:
       assert(0);

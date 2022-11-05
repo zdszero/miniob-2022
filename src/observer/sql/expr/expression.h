@@ -28,6 +28,7 @@ enum class ExprType {
   AGGREGATE,
   VALUE,
   COMPOUND,
+  FUNC,
 };
 
 class Expression {
@@ -216,6 +217,34 @@ private:
   MathOp mathop_;
   Value result_;
   std::string show_name_;
+};
+
+class FuncExpr : public Expression {
+public:
+  FuncExpr(FuncType functype, Expression *left, Expression *right):
+    functype_(functype), left_(left), right_(right)
+  {
+    value_init_null(&val_);
+  }
+  ~FuncExpr() {
+    delete left_;
+    left_ = nullptr;
+    delete right_;
+    right_ = nullptr;
+    value_destroy(&val_);
+  }
+
+  RC get_value(const Tuple &tuple, TupleCell &cell) override;
+  ExprType type() const override { return ExprType::FUNC; }
+  FuncType functype() const { return functype_; }
+  Expression *left() const { return left_; }
+  Expression *right() const { return right_; }
+
+private:
+  FuncType functype_;
+  Expression *left_{nullptr};
+  Expression *right_{nullptr};
+  Value val_;
 };
 
 class ExprContext {

@@ -1,0 +1,13 @@
+create table func_tbl(id int, f float, s char(10), d date);
+insert into func_tbl values(1, 1.234, 'gaoxing', '2012-01-23');
+insert into func_tbl values(2, 4.2, 'nice', '1999-08-23');
+insert into func_tbl values(3, 7, 'nihao', '2012-01-23');
+
+select length(s) from func_tbl;
+select length(s) len1 from func_tbl;
+select round(f, 3) from func_tbl;
+select date_format(d, '%y-%m') from func_tbl;
+select date_format(d, '%z') from func_tbl;
+
+select length('123345'), length(s) from func_tbl;
+select round(3.1415926, 2), round(f,2) from func_tbl;

@@ -97,6 +97,17 @@ std::string mathop_to_string(MathOp mathop)
   return "";
 }
 
+std::string func_to_string(FuncType functype)
+{
+  if (functype == LENGTHF) {
+    return "length";
+  } else if (functype == ROUNDF) {
+    return "round";
+  } else {
+    return "date_format";
+  }
+}
+
 std::string comp_to_string(CompOp comp)
 {
   switch (comp) {
@@ -180,6 +191,18 @@ std::string expr_to_string(Expression *expr, bool is_multi_table)
   } else if (expr->type() == ExprType::COMPOUND) {
     CompoundExpr *compound_expr = static_cast<CompoundExpr *>(expr);
     ss << compound_expr->get_show_name();
+  } else if (expr->type() == ExprType::FUNC) {
+    FuncExpr *func_expr = static_cast<FuncExpr *>(expr);
+    FuncType functype = func_expr->functype();
+    if (functype == LENGTHF) {
+      ss << func_to_string(functype) << "(" << expr_to_string(func_expr->left(), is_multi_table) << ")";
+    } else {
+      ss << func_to_string(functype) << "("
+        << expr_to_string(func_expr->left(),is_multi_table)
+        << ","
+        << expr_to_string(func_expr->right(), is_multi_table)
+        << ")";
+    }
   }
   return ss.str();
 }

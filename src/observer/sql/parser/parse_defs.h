@@ -82,6 +82,7 @@ typedef enum {
   VALN,
   ATTRN,
   AGGRN,
+  FUNCN,
 } NodeType;
 
 typedef enum {
@@ -90,6 +91,12 @@ typedef enum {
   VALUET,
   NODET,
 } FieldType;
+
+typedef enum {
+  LENGTHF,
+  ROUNDF,
+  DATE_FORMATF,
+} FuncType;
 
 //属性值
 typedef struct _Value {
@@ -115,6 +122,11 @@ typedef struct ast {
       struct ast *left;
       struct ast *right;
     } op;
+    struct {
+      FuncType functype;
+      struct ast *left;
+      struct ast *right;
+    } func;
   };
   int l_brace;
   int r_brace;
@@ -308,6 +320,7 @@ ast *new_value_node(Value *value);
 ast *new_attr_node(RelAttr *attr);
 ast *new_aggr_node(Aggregate *aggr);
 ast *new_op_node(MathOp mathop, ast *l, ast *r);
+ast *new_func_node(FuncType functype, ast *l, ast *r);
 void node_destroy(ast *n);
 
 void condition_init(Condition *condition, CompOp comp, int left_is_select, ast *l, Selects *left_select,

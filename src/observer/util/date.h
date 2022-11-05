@@ -1,6 +1,7 @@
 #pragma once
 
 #include "rc.h"
+#include <ctime>
 #include <cstdint>
 #include <cstdio>
 #include <string>
@@ -48,4 +49,15 @@ inline std::string date_to_string(int32_t date) {
   day = date % 100;
   sprintf(buf, "%4d-%02d-%02d", year, month, day);
   return {buf};
+}
+
+inline void init_tm(int32_t date, tm *times) {
+  int year, month, day;
+  year = date / 10000;
+  date %= 10000;
+  month = date / 100;
+  day = date % 100;
+  times->tm_year = year;
+  times->tm_mon = month;
+  times->tm_mday = day;
 }

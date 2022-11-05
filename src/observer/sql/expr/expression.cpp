@@ -16,7 +16,7 @@ See the Mulan PSL v2 for more details. */
 #include "sql/expr/expression.h"
 #include "sql/expr/tuple.h"
 #include "util/ast_util.h"
-#include <sstream>
+#include "util/date.h"
 
 RC FieldExpr::get_value(const Tuple &tuple, TupleCell &cell)
 {
@@ -89,6 +89,45 @@ RC CompoundExpr::get_value(const Tuple &tuple, TupleCell &cell)
     value_init_null(&result_);
     return RC::SUCCESS;
   }
+  return RC::SUCCESS;
+}
+
+RC FuncExpr::get_value(const Tuple &tuple, TupleCell &cell)
+{
+  if (functype_ == LENGTHF) {
+    TupleCell left_cell;
+    left_->get_value(tuple, left_cell);
+    size_t length = strlen(left_cell.data());
+    value_destroy(&val_);
+    value_init_integer(&val_, length);
+  } else if (functype_ == ROUNDF) {
+    TupleCell left_cell, right_cell;
+    left_->get_value(tuple, left_cell);
+    right_->get_value(tuple, right_cell);
+    assert(left_cell.attr_type() == FLOATS);
+    assert(right_cell.attr_type() == INTS);
+    float v = *(float *)(left_cell.data());
+    int roundto = *(int *)(right_cell.data());
+    char fmt[128];
+    char buf[128];
+    sprintf(fmt, "%%.%df", roundto);
+    sprintf(buf, fmt, v);
+    value_destroy(&val_);
+    value_init_string(&val_, buf);
+  } else if (functype_ == DATE_FORMATF) {
+    TupleCell left_cell, right_cell;
+    left_->get_value(tuple, left_cell);
+    right_->get_value(tuple, right_cell);
+    int32_t date = *(int32_t *)left_cell.data();
+    tm times;
+    const char *format = right_cell.data();
+    init_tm(date, &times);
+    char buf[128];
+    strftime(buf, 128, format, &times);
+    value_destroy(&val_);
+    value_init_string(&val_, buf);
+  }
+  cell = TupleCell(val_);
   return RC::SUCCESS;
 }
 
@@ -216,12 +255,17 @@ Expression *ExprFactory::create(ast *t, const ExprContext &ctx)
     }
   } else if (t->nodetype == NodeType::VALN) {
     return new ValueExpr(t->val);
-  } else {
-    assert(t->nodetype == NodeType::OPN);
+  } else if (t->nodetype == NodeType::OPN) {
     Expression *left_expr = create(t->op.left, ctx);
     Expression *right_expr = create(t->op.right, ctx);
     CompoundExpr *ret = new CompoundExpr(left_expr, right_expr, t->op.mathop);
     ret->set_show_name(ast_to_string(t));
+    return ret;
+  } else {
+    assert(t->nodetype == NodeType::FUNCN);
+    Expression *left_expr = create(t->func.left, ctx);
+    Expression *right_expr = create(t->func.right, ctx);
+    FuncExpr *ret = new FuncExpr(t->func.functype, left_expr, right_expr);
     return ret;
   }
 }

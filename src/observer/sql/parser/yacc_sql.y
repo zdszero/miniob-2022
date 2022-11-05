@@ -109,7 +109,7 @@ void clear_selection(ParserContext *context, size_t select_idx)
 %token  CREATE DROP TABLE TABLES INDEX SELECT DESC SHOW SYNC INSERT DELETE
 				UPDATE TRX_BEGIN TRX_COMMIT TRX_ROLLBACK HELP EXIT INTO VALUES FROM
 				WHERE AND OR SET ON LOAD DATA INFILE INNER JOIN UNIQUE ORDER BY ASC
-				GROUP HAVING AS
+				GROUP HAVING AS LENGTH ROUND DATE_FORMAT
 // punctuations
 %token SEMICOLON DOT COMMA LBRACE RBRACE
 // types
@@ -149,6 +149,7 @@ void clear_selection(ParserContext *context, size_t select_idx)
 %type <ast1> value;
 %type <ast1> exp;
 %type <ast1> aggr_func;
+%type <ast1> func;
 %type <number> nullable;
 %type <number> is_exist;
 %type <number> is_in;
@@ -522,7 +523,25 @@ select_expr:
 		CONTEXT->expr_alias[CUR_SEL][CONTEXT->expr_length[CUR_SEL]] = $2;
 		CONTEXT->expr_length[CUR_SEL]++;
 	}
+	| func as_alias {
+		CONTEXT->exprs[CUR_SEL][CONTEXT->expr_length[CUR_SEL]] = $1;
+		CONTEXT->expr_alias[CUR_SEL][CONTEXT->expr_length[CUR_SEL]] = $2;
+		CONTEXT->expr_length[CUR_SEL]++;
+	}
 	;
+
+func:
+	LENGTH LBRACE exp RBRACE {
+		$$ = new_func_node(LENGTHF, $3, NULL);
+	}
+	| ROUND LBRACE exp COMMA exp RBRACE {
+		$$ = new_func_node(ROUNDF, $3, $5);
+	}
+	| DATE_FORMAT LBRACE exp COMMA exp RBRACE {
+		$$ = new_func_node(DATE_FORMATF, $3, $5);
+	}
+	;
+
 
 as_alias:
 		/* empty */ {
