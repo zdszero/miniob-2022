@@ -57,7 +57,7 @@ inline void init_tm(int32_t date, tm *times) {
   date %= 10000;
   month = date / 100;
   day = date % 100;
-  times->tm_year = year;
-  times->tm_mon = month;
+  times->tm_year = year-1900;
+  times->tm_mon = month-1;
   times->tm_mday = day;
 }

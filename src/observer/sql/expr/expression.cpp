@@ -127,20 +127,20 @@ RC FuncExpr::get_value(const Tuple &tuple, TupleCell &cell)
     }
     float pow = pow10(n);
     v = std::round(v * pow) / pow;
-    if (v == static_cast<int>(v)) {
-      n = 0;
-    }
-    char fmt[128];
-    char buf[128];
-    sprintf(fmt, "%%.%df", n);
-    sprintf(buf, fmt, v);
     value_destroy(&val_);
-    value_init_string(&val_, buf);
+    value_init_float(&val_, v);
   } else if (functype_ == DATE_FORMATF) {
     TupleCell left_cell, right_cell;
     left_->get_value(tuple, left_cell);
     right_->get_value(tuple, right_cell);
-    int32_t date = *(int32_t *)left_cell.data();
+    int32_t date;
+    if (left_cell.attr_type() == CHARS) {
+      string_to_date(left_cell.data(), date);
+    } else if (left_cell.attr_type() == DATES) {
+      date = *(int32_t *)left_cell.data();
+    } else {
+      assert(false);
+    }
     tm times;
     const char *format = right_cell.data();
     init_tm(date, &times);

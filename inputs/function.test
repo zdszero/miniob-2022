@@ -15,5 +15,19 @@ select round(235.415, 2) as round_value;
 select round(3.1415926, 2), round(f,2) from func_tbl;
 select round(-265.5) from func_tbl;
 
-select date_format(d, '%y-%m') from func_tbl;
-select date_format(d, '%z') from func_tbl;
+create table function_table(id int, name char(20), score float);
+insert into function_table values(3, 'CHERRY', 1919.4);
+insert into function_table values(4, 'FIG', 23333.2);
+insert into function_table values(5, 'WATERMELON', 1000.32);
+create table function_table_2(id int, name char(20), score float);
+insert into function_table_2 values(2, 'MANGO', 38);
+select t1.id, t1.name, round(t1.score) as s1, t2.id, t2.name, round(t2.score) as s2 from function_table t1, function_table_2 t2 where t1.id > t2.id and round(t1.score) > round(t2.score);
+select t1.id, t1.name, round(t1.score) as s1, t2.id, t2.name, round(t2.score) as s2 from function_table t1, function_table_2 t2 where t1.id > t2.id;
+-3 | CHERRY | 1919 | 2 | MANGO | 38
+-4 | FIG | 23333 | 2 | MANGO | 38
+-5 | WATERMELON | 1000 | 2 | MANGO | 38
+T1.ID | T1.NAME | S1 | T2.ID | T2.NAME | S2
+
+select date_format('2019-9-17', '%y/%m/%d') as date_type;
+select d, date_format(d, '%y/%m/%d') as date_type from func_tbl;
+select id, date_format(d, '%Y.%m.%d') as DATE_TYPE from func_tbl where d > '2000-1-2';
