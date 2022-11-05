@@ -30,3 +30,4 @@ select t1.id, t1.name, round(t1.score) as s1, t2.id, t2.name, round(t2.score) as
 select date_format('2019-9-17', '%y/%m/%d') as date_type;
 select d, date_format(d, '%y/%m/%d') as date_type from func_tbl;
 select d, date_format(d, '%D,%M,%Y') as date_type from func_tbl;
+select d, date_format(d, '%z/%n/%d') as date_type from func_tbl;

@@ -67,7 +67,6 @@ std::string format_date(int32_t date, const std::string &format)
   for (size_t i = 0; i < format.size();) {
     if (format[i] == '%') {
       if (i + 2 > format.size()) {
-        ss << '%';
         i++;
         continue;
       }
@@ -91,7 +90,6 @@ std::string format_date(int32_t date, const std::string &format)
         }
         ss << day;
       } else {
-        ss << '%';
         i++;
         continue;
       }
