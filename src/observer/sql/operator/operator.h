@@ -30,6 +30,7 @@ enum class OperatorType
   PROJECT,
   TABLE_SCAN,
   UPDATE,
+  NOTABLE,
 };
 
 class Record;

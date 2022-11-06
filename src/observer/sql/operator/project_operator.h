@@ -39,8 +39,6 @@ public:
     order_policies_ = policies;
     order_exprs_ = order_exprs;
   }
-  void set_notable() { has_table_ = false; }
-
   RC open() override;
   RC next() override;
   RC close() override;
@@ -63,7 +61,4 @@ private:
   std::vector<Expression *> order_exprs_;
   std::vector<ProjectTuple *> sorted_tuples_;
   size_t next_idx_{0};
-  bool has_table_{true};
-  bool is_first_{true};
-  RowTuple unused_tuple_;
 };
