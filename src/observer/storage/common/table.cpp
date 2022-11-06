@@ -746,6 +746,18 @@ RC Table::update_record(Trx *trx, Record *old_rec, Record *new_rec) {
       new_rec->rid().page_num, new_rec->rid().slot_num, rc, strrc(rc));
     return rc;
   } 
+  if (trx != nullptr) {
+    CLogRecord *clog_record = nullptr;
+    rc = clog_manager_->clog_gen_record(CLogType::REDO_INSERT, trx->get_current_id(), clog_record, name(), table_meta_.record_size(), new_rec);
+    if (rc != RC::SUCCESS) {
+      LOG_ERROR("Failed to create a clog record. rc=%d:%s", rc, strrc(rc));
+      return rc;
+    }
+    rc = clog_manager_->clog_append_record(clog_record);
+    if (rc != RC::SUCCESS) {
+      return rc;
+    }
+  }
   return rc;
 }
 
